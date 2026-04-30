@@ -1607,7 +1607,7 @@ class Listing_System
                 <option value="price_desc" <?php selected($selected_sort, 'price_desc'); ?>>Price (High to Low)</option>
             </select>
         </div>
-    
+
         <?php
         return ob_get_clean();
     }
@@ -3754,23 +3754,23 @@ class Listing_System
     ?>
         <style>
             /* Base trigger styling */
-       .cls-mobile-filter-btn {
-    display: none;
-    align-items: center;
-    justify-content: space-between;
-    background-color: #fff !important;
-    color: #000 !important;
-    padding: 14px;
-    border-radius: 5px !important;
-    border: none;
-    cursor: pointer !important;
-    font-size: 16px;
-    font-family: ;
-    gap: 12px;
-    transition: background-color 0.2s ease;
-    width: 100%;
-    min-height: 55px;
-}
+            .cls-mobile-filter-btn {
+                display: none;
+                align-items: center;
+                justify-content: space-between;
+                background-color: #fff !important;
+                color: #000 !important;
+                padding: 14px;
+                border-radius: 5px !important;
+                border: none;
+                cursor: pointer !important;
+                font-size: 16px;
+                font-family: ;
+                gap: 12px;
+                transition: background-color 0.2s ease;
+                width: 100%;
+                min-height: 55px;
+            }
 
             .cls-mobile-filter-btn:hover {
                 background-color: #DDE0E3;
@@ -3859,6 +3859,11 @@ class Listing_System
 
                 .cls-filter-modal-close:hover {
                     background: #e2e4e7;
+                }
+            }
+            @media(max-width: 767px) {
+                .cls-mobile-filter-btn {
+                    font-size: 12px;
                 }
             }
         </style>
