@@ -3480,6 +3480,14 @@ class Listing_System
                     ?>
 
                 </form>
+                <div class="showing">
+                    <span class="elementor-heading-title elementor-size-default">
+                        Show
+                        <span class="post-count" style="font-weight: 600">0</span> <span class="title-make"></span>
+                        <span class="title-listing">
+                        </span>
+                    </span>
+                </div>
             </div>
         </div>
 
