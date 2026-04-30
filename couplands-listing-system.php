@@ -3751,6 +3751,71 @@ class Listing_System
     public function output_js($filter_fields = [])
     {
     ?>
+    <style>
+            /* Base trigger styling based on image_0162b1.png */
+            .cls-mobile-filter-btn {
+                display: none; 
+                align-items: center;
+                justify-content: space-between;
+                background-color: #E8EAEC;
+                color: #111;
+                padding: 10px 16px;
+                border-radius: 6px;
+                border: none;
+                cursor: pointer;
+                font-size: 15px;
+                font-family: inherit;
+                width: fit-content;
+                gap: 12px;
+                transition: background-color 0.2s ease;
+            }
+            .cls-mobile-filter-btn:hover { background-color: #DDE0E3; }
+            .cls-filter-modal-close { display: none; }
+
+            /* Modal Enforcement Breakpoint */
+            @media (max-width: 1024px) {
+                .cls-mobile-filter-btn { display: flex; }
+                
+                .cls-filter-modal-wrapper {
+                    display: none; 
+                    position: fixed;
+                    top: 0; left: 0;
+                    width: 100vw; height: 100vh;
+                    background: rgba(0, 0, 0, 0.6);
+                    z-index: 99999;
+                    align-items: center;
+                    justify-content: center;
+                    opacity: 0;
+                    transition: opacity 0.3s ease;
+                }
+                .cls-filter-modal-wrapper.is-active {
+                    display: flex;
+                    opacity: 1;
+                }
+                .cls-filter-modal-content {
+                    background: #fff;
+                    padding: 40px 20px 20px;
+                    border-radius: 12px;
+                    width: 90%;
+                    max-width: 500px;
+                    max-height: 85vh;
+                    overflow-y: auto;
+                    position: relative;
+                    box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+                }
+                .cls-filter-modal-close {
+                    display: block;
+                    position: absolute;
+                    top: 10px; right: 15px;
+                    background: transparent;
+                    border: none;
+                    font-size: 28px;
+                    line-height: 1;
+                    cursor: pointer;
+                    color: #333;
+                }
+            }
+        </style>
         <script>
             jQuery(document).ready(function($) {
                 const $form = $('#caravan-filter-form');
@@ -3823,6 +3888,41 @@ class Listing_System
                     if (currentPage < maxPages) {
                         currentPage++;
                         fetchCaravans(true);
+                    }
+                });
+
+
+
+                /**
+                 * Modal UI State Controller
+                 * Manages class toggling and body scroll locking for the filter view.
+                 */
+                const filterTrigger = document.getElementById('cls-mobile-filter-trigger');
+                const filterModal = document.getElementById('cls-filter-modal-wrapper');
+                const filterClose = document.getElementById('cls-filter-modal-close');
+
+                if (filterTrigger && filterModal) {
+                    filterTrigger.addEventListener('click', function() {
+                        filterModal.classList.add('is-active');
+                        $('body').css('overflow', 'hidden'); // Prevent background scrolling
+                    });
+                }
+
+                const closeModal = function() {
+                    if(filterModal) {
+                        filterModal.classList.remove('is-active');
+                        $('body').css('overflow', ''); // Restore scroll
+                    }
+                };
+
+                if (filterClose) {
+                    filterClose.addEventListener('click', closeModal);
+                }
+
+                // Close on exterior overlay click
+                $(window).on('click', function(event) {
+                    if (event.target === filterModal) {
+                        closeModal();
                     }
                 });
 
