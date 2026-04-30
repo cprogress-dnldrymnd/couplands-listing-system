@@ -621,7 +621,7 @@ class Listing_System
     {
         ob_start();
     ?>
-        <button id="cls-mobile-filter-trigger" class="cls-mobile-filter-btn" type="button" aria-label="Open Filters">
+        <button id="cls-mobile-filter-trigger" class="cls-mobile-filter-btn cls-mobile-filter-btn-trigger" type="button" aria-label="Open Filters">
             Filters
             <!-- Standard filter icon mirroring the provided design constraint -->
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
