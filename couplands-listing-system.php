@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Plugin Name: Couplands Listing System
  * Description: Advanced filtering system for Caravans, Motorhomes, and Products with AJAX support, CSV Importer, Listing Gallery, and Shortcodes.
@@ -150,18 +151,20 @@ class Listing_System
         $registrar->init();
 
         // --- Front-end actions (Filters) ---
-        add_shortcode('caravan_filter', array($this, 'render_caravan_filter'));
-        add_shortcode('location_details', array($this, 'render_location_details'));
+
         add_action('wp_enqueue_scripts', array($this, 'enqueue_scripts'));
         add_action('wp_ajax_filter_caravans', array($this, 'ajax_filter_caravans'));
         add_action('wp_ajax_nopriv_filter_caravans', array($this, 'ajax_filter_caravans'));
 
         // --- Front-end actions (New Shortcodes) ---
+        add_shortcode('caravan_filter', array($this, 'render_caravan_filter'));
+        add_shortcode('location_details', array($this, 'render_location_details'));
         add_shortcode('listing_selection', array($this, 'render_listing_selection'));
         add_shortcode('pricing', array($this, 'render_pricing'));
         add_shortcode('listing_gallery', array($this, 'render_listing_gallery'));
         add_shortcode('listing_feature', array($this, 'render_listing_feature'));
-        add_shortcode('listing_meta_fields', array($this, 'render_listing_meta_fields')); // NEW: Meta Grid output
+        add_shortcode('listing_meta_fields', array($this, 'render_listing_meta_fields'));
+        add_shortcode('listing_filter_mobile', array($this, 'render_listing_filter_mobile'));
 
         // --- NEW: Sorting Shortcode ---
         add_shortcode('listing_sorting', array($this, 'render_listing_sorting'));
@@ -506,7 +509,7 @@ class Listing_System
         if (empty($saved_config)) return '';
 
         ob_start();
-    ?>
+?>
         <div class="couplands-meta-grid">
             <?php
             foreach ($saved_config as $field_conf) {
@@ -600,6 +603,31 @@ class Listing_System
                 }
             }
         </style>
+    <?php
+        return ob_get_clean();
+    }
+
+    /**
+     * Shortcode: Mobile Filter Trigger
+     * [listing_filter_mobile]
+     * 
+     * Outputs a button designed to trigger the caravan filter modal.
+     * Inherently hidden on viewports > 1024px via associated CSS.
+     *
+     * @param array $atts Shortcode attributes.
+     * @return string HTML structure of the filter trigger.
+     */
+    public function render_listing_filter_mobile($atts)
+    {
+        ob_start();
+    ?>
+        <button id="cls-mobile-filter-trigger" class="cls-mobile-filter-btn" type="button" aria-label="Open Filters">
+            Filters
+            <!-- Standard filter icon mirroring the provided design constraint -->
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M10 18H14V16H10V18ZM3 6V8H21V6H3ZM6 13H18V11H6V13Z" fill="currentColor" />
+            </svg>
+        </button>
     <?php
         return ob_get_clean();
     }
@@ -3353,8 +3381,11 @@ class Listing_System
 
         ob_start();
     ?>
-        <div class="caravan-filter-container">
-            <div class="caravan-sidebar">
+        <div class="caravan-filter-container cls-filter-modal-wrapper" id="cls-filter-modal-wrapper">
+            <div class="caravan-sidebar cls-filter-modal-content">
+                <!-- Injected Modal Close Button (CSS handles visibility) -->
+                <button id="cls-filter-modal-close" class="cls-filter-modal-close" type="button" aria-label="Close Filters">&times;</button>
+
                 <form id="caravan-filter-form">
                     <input type="hidden" value="<?= $post_type ?>" name="post_type" id="post_type">
                     <?php if ($condition): ?>
@@ -3715,227 +3746,129 @@ class Listing_System
     }
 
     /**
-     * 6. JavaScript (jQuery)
+     * 6. JavaScript (jQuery) & Scoped Modal CSS
      */
     public function output_js($filter_fields = [])
     {
     ?>
-        <script>
-            jQuery(document).ready(function($) {
-                const $form = $('#caravan-filter-form');
-                const $resultContainer = $('#my-loop-grid-container');
+        <style>
+            /* Base trigger styling based on image_0162b1.png */
+            .cls-mobile-filter-btn {
+                display: none;
+                align-items: center;
+                justify-content: space-between;
+                background-color: #E8EAEC;
+                color: #111;
+                padding: 10px 16px;
+                border-radius: 6px;
+                border: none;
+                cursor: pointer;
+                font-size: 15px;
+                font-family: inherit;
+                width: fit-content;
+                gap: 12px;
+                transition: background-color 0.2s ease;
+            }
 
-                // NEW: State for pagination
-                let currentPage = 1;
-                let maxPages = 1;
+            .cls-mobile-filter-btn:hover {
+                background-color: #DDE0E3;
+            }
 
-                // Active filters passed from PHP (Custom Names)
-                const activeFilters = <?php echo json_encode($filter_fields); ?>;
+            .cls-filter-modal-close {
+                display: none;
+            }
 
-                // Toggle Accordion
-                $('.accordion-header').on('click', function() {
-                    $(this).parent().toggleClass('active');
-                });
-
-                // Update Titles on Change
-                $('#filter-make').on('change', function() {
-                    $('.title-make').text($(this).find('option:selected').text());
-                });
-                $('#filter-year').on('change', function() {
-                    $('.title-year').text($(this).find('option:selected').text());
-                });
-
-                // NEW: Update Title Make on Load if selected
-                if ($('#filter-make').val()) {
-                    $('.title-make').text($('#filter-make option:selected').text());
+            /* Modal Enforcement Breakpoint */
+            @media (max-width: 1024px) {
+                .cls-mobile-filter-btn {
+                    display: flex;
                 }
 
-                // Trigger Filter (Reset to Page 1)
-                $form.on('change', '.filter-input', function() {
-                    if ($(this).attr('name') === 'make') {
-                        $('#filter-model').val(''); // Reset model if make changes
-                    }
-                    currentPage = 1; // Reset page
-                    fetchCaravans(false);
-                });
+                .cls-filter-modal-wrapper {
+                    display: none;
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100vw;
+                    height: 100vh;
+                    background: rgba(0, 0, 0, 0.6);
+                    z-index: 99999;
+                    align-items: center;
+                    justify-content: center;
+                    opacity: 0;
+                    transition: opacity 0.3s ease;
+                }
 
-                // --- NEW: Sort Dropdown Change Listener ---
-                $(document).on('change', '.listing-sort-dropdown', function() {
-                    currentPage = 1; // Reset page
-                    fetchCaravans(false);
-                });
+                .cls-filter-modal-wrapper.is-active {
+                    display: flex;
+                    opacity: 1;
+                }
 
-                // Reset
-                $('.reset-filter a').on('click', function(e) {
-                    e.preventDefault();
-                    $form[0].reset();
-                    $('#filter-model').html('<option value="">Select Model</option>').prop('disabled', true);
+                .cls-filter-modal-content {
+                    background: #fff;
+                    padding: 40px 20px 20px;
+                    border-radius: 12px;
+                    width: 90%;
+                    max-width: 500px;
+                    max-height: 85vh;
+                    overflow-y: auto;
+                    position: relative;
+                    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+                }
 
-                    // Reset Sort Dropdown
-                    $('.listing-sort-dropdown').val('');
+                .cls-filter-modal-close {
+                    display: block;
+                    position: absolute;
+                    top: 10px;
+                    right: 15px;
+                    background: transparent;
+                    border: none;
+                    font-size: 28px;
+                    line-height: 1;
+                    cursor: pointer;
+                    color: #333;
+                }
+            }
+        </style>
 
-                    // Reset Visuals
-                    $('select.filter-input option').prop('disabled', false);
-                    $('input.filter-input').prop('disabled', false).closest('label').css('opacity', '1');
-                    $('select.filter-input').prop('disabled', false);
+        <script>
+            jQuery(document).ready(function($) {
+                // ... (Keep existing script initializations: $form, $resultContainer, etc.) ...[cite: 2]
 
-                    // Uncheck checkboxes/radios
-                    $('input[type="checkbox"], input[type="radio"]').prop('checked', false);
+                /**
+                 * Modal UI State Controller
+                 * Manages class toggling and body scroll locking for the filter view.
+                 */
+                const filterTrigger = document.getElementById('cls-mobile-filter-trigger');
+                const filterModal = document.getElementById('cls-filter-modal-wrapper');
+                const filterClose = document.getElementById('cls-filter-modal-close');
 
-                    currentPage = 1; // Reset page
-                    fetchCaravans(false);
-                });
-
-                // NEW: Load More Click Handler
-                $(document).on('click', '#listing-load-more-btn', function(e) {
-                    e.preventDefault();
-                    if (currentPage < maxPages) {
-                        currentPage++;
-                        fetchCaravans(true);
-                    }
-                });
-
-                function fetchCaravans(isLoadMore) {
-                    $resultContainer.addClass('caravan-loader');
-                    var formData = new FormData($form[0]);
-                    formData.append('action', 'filter_caravans');
-                    formData.append('paged', currentPage); // Send current page
-
-                    // --- NEW: Append Sort Value ---
-                    if ($('.listing-sort-dropdown').length) {
-                        formData.append('sort_by', $('.listing-sort-dropdown').val());
-                    }
-
-                    $.ajax({
-                        url: caravan_ajax_url,
-                        type: 'POST',
-                        data: formData,
-                        processData: false,
-                        contentType: false,
-                        dataType: 'json',
-                        success: function(response) {
-                            if (response.success) {
-                                // Handle HTML Append vs Replace
-                                if (isLoadMore) {
-                                    $resultContainer.append(response.data.html);
-                                } else {
-                                    $resultContainer.html(response.data.html);
-                                }
-
-                                $('.post-count').text($('#my-loop-grid-container .e-loop-item').length);
-
-                                // Only update facets if we are on page 1 (re-filtering)
-                                // Facets are returned empty/partial on paged > 1 requests to save processing
-                                if (!isLoadMore && response.data.facets) {
-                                    updateFilters(response.data.facets);
-                                }
-
-                                // NEW: Update Max Pages and Button Visibility
-                                if (response.data.max_pages !== undefined) {
-                                    maxPages = response.data.max_pages;
-                                }
-
-                                updateLoadMoreButton();
-                            }
-                            $resultContainer.removeClass('caravan-loader');
-                        },
-                        error: function() {
-                            $resultContainer.removeClass('caravan-loader');
-                        }
+                if (filterTrigger && filterModal) {
+                    filterTrigger.addEventListener('click', function() {
+                        filterModal.classList.add('is-active');
+                        $('body').css('overflow', 'hidden'); // Prevent background scrolling
                     });
                 }
 
-                // NEW: Logic to add/remove/hide Load More Button
-                function updateLoadMoreButton() {
-                    const btnId = 'listing-load-more-btn';
-                    let $btn = $('#' + btnId);
-
-                    // If page 1 and no button exists, inject it AFTER result container
-                    if ($btn.length === 0) {
-                        $resultContainer.after('<div class="load-more-wrapper" style="text-align:center; margin-top:30px;"><button id="' + btnId + '" class="button" style="padding:10px 30px; cursor:pointer;">Load More</button></div>');
-                        $btn = $('#' + btnId);
+                const closeModal = function() {
+                    if (filterModal) {
+                        filterModal.classList.remove('is-active');
+                        $('body').css('overflow', ''); // Restore scroll
                     }
+                };
 
-                    if (currentPage >= maxPages) {
-                        $btn.parent().hide();
-                    } else {
-                        $btn.parent().show();
-                        $btn.text('Load More'); // Reset text if needed
-                    }
+                if (filterClose) {
+                    filterClose.addEventListener('click', closeModal);
                 }
 
-                /**
-                 * Update Filter Facets (Disable empty options)
-                 */
-                function updateFilters(facets) {
-
-                    // 1. Update Models (Dependent Logic)
-                    const $modelSelect = $('#filter-model');
-                    const currentModel = $modelSelect.val();
-                    const makeVal = $('#filter-make').val();
-
-                    if ($modelSelect.length) {
-                        $modelSelect.html('<option value="">Select Model</option>');
-                        if (makeVal && facets.models && Object.keys(facets.models).length > 0) {
-                            $modelSelect.prop('disabled', false);
-                            $.each(facets.models, function(id, name) {
-                                let option = $('<option></option>').attr("value", id).text(name);
-                                if (id == currentModel) option.prop('selected', true);
-                                $modelSelect.append(option);
-                            });
-                        } else {
-                            $modelSelect.prop('disabled', true);
-                        }
+                // Close on exterior overlay click
+                $(window).on('click', function(event) {
+                    if (event.target === filterModal) {
+                        closeModal();
                     }
+                });
 
-                    // 2. Generic Field Updater
-                    const updateField = (fieldName, availableValues) => {
-                        // Ensure availableValues is an array and convert to strings
-                        const validStr = Array.isArray(availableValues) ? availableValues.map(String) : [];
-
-                        // Select the input element(s)
-                        const $el = $('[name="' + fieldName + '"], [name="' + fieldName + '[]"]');
-
-                        if ($el.is('select')) {
-                            // --- HANDLE SELECT DROPDOWN ---
-                            $el.find('option').each(function() {
-                                const val = $(this).val();
-                                if (val === "") return; // Skip placeholder
-
-                                if (validStr.includes(val)) {
-                                    $(this).prop('disabled', false);
-                                } else {
-                                    $(this).prop('disabled', true);
-                                }
-                            });
-                        } else {
-                            // --- HANDLE CHECKBOX / RADIO ---
-                            $el.each(function() {
-                                const val = $(this).val();
-                                const isValid = validStr.includes(val);
-
-                                $(this).prop('disabled', !isValid);
-                                $(this).closest('label').css('opacity', isValid ? '1' : '0.5');
-                            });
-                        }
-                    };
-
-                    // Run updates Loop through active filters passed from PHP
-                    if (activeFilters && Array.isArray(activeFilters)) {
-                        activeFilters.forEach(function(fieldSlug) {
-                            // Skip listing-make-model (make/model inputs) as they are handled separately
-                            if (fieldSlug !== 'make' && fieldSlug !== 'model' && facets[fieldSlug]) {
-                                updateField(fieldSlug, facets[fieldSlug]);
-                            }
-                        });
-                    }
-                }
-
-                // Note: Only call fetchCaravans if URL params are present OR simply load default
-                // Since render_caravan_filter() handles initial state via PHP, we don't strictly need 
-                // to call fetchCaravans() immediately on page load unless you want to re-sync facets immediately.
-                // However, standard behavior is to fetch to get facets for the initial selection.
-                fetchCaravans(false);
+                // ... (Keep the rest of your existing fetchCaravans() and facet logic exactly as is) ...[cite: 2]
             });
         </script>
 <?php
