@@ -3751,10 +3751,10 @@ class Listing_System
     public function output_js($filter_fields = [])
     {
     ?>
-    <style>
-            /* Base trigger styling based on image_0162b1.png */
+        <style>
+            /* Base trigger styling */
             .cls-mobile-filter-btn {
-                display: none; 
+                display: none;
                 align-items: center;
                 justify-content: space-between;
                 background-color: #E8EAEC;
@@ -3769,50 +3769,94 @@ class Listing_System
                 gap: 12px;
                 transition: background-color 0.2s ease;
             }
-            .cls-mobile-filter-btn:hover { background-color: #DDE0E3; }
-            .cls-filter-modal-close { display: none; }
+
+            .cls-mobile-filter-btn:hover {
+                background-color: #DDE0E3;
+            }
+
+            .cls-filter-modal-close {
+                display: none;
+            }
 
             /* Modal Enforcement Breakpoint */
             @media (max-width: 1024px) {
-                .cls-mobile-filter-btn { display: flex; }
-                
+                .cls-mobile-filter-btn {
+                    display: flex;
+                }
+
+                /* Overlay Background */
                 .cls-filter-modal-wrapper {
-                    display: none; 
                     position: fixed;
-                    top: 0; left: 0;
-                    width: 100vw; height: 100vh;
+                    top: 0;
+                    left: 0;
+                    width: 100vw;
+                    height: 100vh;
                     background: rgba(0, 0, 0, 0.6);
                     z-index: 99999;
-                    align-items: center;
-                    justify-content: center;
-                    opacity: 0;
-                    transition: opacity 0.3s ease;
-                }
-                .cls-filter-modal-wrapper.is-active {
                     display: flex;
-                    opacity: 1;
+                    align-items: stretch;
+                    /* Forces the drawer to be full height */
+                    justify-content: flex-start;
+                    /* Aligns drawer to the left */
+
+                    /* Hide using visibility instead of display to allow transitions */
+                    opacity: 0;
+                    visibility: hidden;
+                    transition: opacity 0.3s ease, visibility 0.3s ease;
                 }
+
+                /* Modal Content (The Drawer) */
                 .cls-filter-modal-content {
                     background: #fff;
-                    padding: 40px 20px 20px;
-                    border-radius: 12px;
-                    width: 90%;
-                    max-width: 500px;
-                    max-height: 85vh;
+                    padding: 50px 20px 20px;
+                    width: 85%;
+                    max-width: 400px;
+                    height: 100vh;
+                    max-height: 100vh;
                     overflow-y: auto;
                     position: relative;
-                    box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+                    box-shadow: 2px 0 20px rgba(0, 0, 0, 0.3);
+                    border-radius: 0;
+
+                    /* Start off-screen to the left */
+                    transform: translateX(-100%);
+                    /* Smooth easing for the slide-in */
+                    transition: transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
                 }
+
+                /* Active State */
+                .cls-filter-modal-wrapper.is-active {
+                    opacity: 1;
+                    visibility: visible;
+                }
+
+                /* Slide the drawer in when active */
+                .cls-filter-modal-wrapper.is-active .cls-filter-modal-content {
+                    transform: translateX(0);
+                }
+
+                /* Close Button Styling */
                 .cls-filter-modal-close {
-                    display: block;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
                     position: absolute;
-                    top: 10px; right: 15px;
-                    background: transparent;
+                    top: 15px;
+                    right: 15px;
+                    width: 32px;
+                    height: 32px;
+                    background: #f0f0f1;
+                    border-radius: 50%;
                     border: none;
-                    font-size: 28px;
+                    font-size: 24px;
                     line-height: 1;
                     cursor: pointer;
                     color: #333;
+                    transition: background 0.2s ease;
+                }
+
+                .cls-filter-modal-close:hover {
+                    background: #e2e4e7;
                 }
             }
         </style>
@@ -3909,7 +3953,7 @@ class Listing_System
                 }
 
                 const closeModal = function() {
-                    if(filterModal) {
+                    if (filterModal) {
                         filterModal.classList.remove('is-active');
                         $('body').css('overflow', ''); // Restore scroll
                     }
