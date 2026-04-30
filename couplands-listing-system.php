@@ -3810,7 +3810,6 @@ class Listing_System
                 /* Modal Content (The Drawer) */
                 .cls-filter-modal-content {
                     background: #fff;
-                    padding: 50px 20px 20px;
                     width: 85%;
                     max-width: 400px;
                     height: 100vh;
@@ -3838,28 +3837,25 @@ class Listing_System
                 }
 
                 /* Close Button Styling */
-                .cls-filter-modal-close {
+                .cls-filter-modal-close.cls-filter-modal-close {
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    top: 15px;
-                    right: 15px;
-                    width: 32px;
-                    height: 32px;
-                    background: #f0f0f1;
-                    border-radius: 50%;
                     border: none;
-                    font-size: 24px;
+                    font-size: 12px;
                     line-height: 1;
                     cursor: pointer;
-                    color: #333;
+                    color: #000;
                     transition: background 0.2s ease;
+                    background-color: transparent;
+                    padding: 0;
                 }
 
                 .cls-filter-modal-close:hover {
                     background: #e2e4e7;
                 }
             }
+
             @media(max-width: 767px) {
                 .cls-mobile-filter-btn.cls-mobile-filter-btn {
                     font-size: 12px;
