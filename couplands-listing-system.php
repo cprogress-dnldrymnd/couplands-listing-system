@@ -3790,7 +3790,8 @@ class Listing_System
                 .cls-mobile-filter-btn {
                     display: flex;
                 }
-                .cls-filter-modal-close span{
+
+                .cls-filter-modal-close span {
                     font-size: 40px;
                     line-height: 1;
                 }
@@ -3957,7 +3958,10 @@ class Listing_System
                  */
                 const filterTrigger = document.getElementById('cls-mobile-filter-trigger');
                 const filterModal = document.getElementById('cls-filter-modal-wrapper');
-                const filterClose = document.getElementsByClassName('cls-filter-modal-close-trigger');
+                const filterCloseElements = document.querySelectorAll('.cls-filter-modal-close-trigger');
+
+
+
 
                 if (filterTrigger && filterModal) {
                     filterTrigger.addEventListener('click', function() {
@@ -3973,8 +3977,11 @@ class Listing_System
                     }
                 };
 
-                if (filterClose) {
-                    filterClose.addEventListener('click', closeModal);
+
+                if (filterCloseElements.length > 0) {
+                    filterCloseElements.forEach(function(el) {
+                        el.addEventListener('click', closeModal);
+                    });
                 }
 
                 // Close on exterior overlay click
