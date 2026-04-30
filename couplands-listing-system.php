@@ -3862,8 +3862,9 @@ class Listing_System
                 }
             }
             @media(max-width: 767px) {
-                .cls-mobile-filter-btn {
+                .cls-mobile-filter-btn.cls-mobile-filter-btn {
                     font-size: 12px;
+                    min-height: 47px;
                 }
             }
         </style>
