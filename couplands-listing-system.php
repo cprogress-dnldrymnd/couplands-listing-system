@@ -3873,6 +3873,9 @@ class Listing_System
                     font-size: 12px;
                     min-height: 47px;
                 }
+                .cls-filter-modal-content {
+                    width: calc(100% - 25px);
+                }
             }
         </style>
         <script>
