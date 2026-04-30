@@ -3384,8 +3384,10 @@ class Listing_System
         <div class="caravan-filter-container cls-filter-modal-wrapper" id="cls-filter-modal-wrapper">
             <div class="caravan-sidebar cls-filter-modal-content">
                 <!-- Injected Modal Close Button (CSS handles visibility) -->
-                <button id="cls-filter-modal-close" class="cls-filter-modal-close" type="button" aria-label="Close Filters">&times;</button>
-
+                <div class="modal--header">
+                    <h4>Filters</h4>
+                    <button id="cls-filter-modal-close" class="cls-filter-modal-close" type="button" aria-label="Close Filters">&times;</button>
+                </div>
                 <form id="caravan-filter-form">
                     <input type="hidden" value="<?= $post_type ?>" name="post_type" id="post_type">
                     <?php if ($condition): ?>
