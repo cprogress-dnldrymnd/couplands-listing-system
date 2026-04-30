@@ -3853,8 +3853,10 @@ class Listing_System
                     cursor: pointer;
                     color: #000;
                     transition: background 0.2s ease;
-                    background-color: transparent;
+                    background-color: transparent !important;
                     padding: 0;
+                    gap: 10px;
+                    border-radius: 0 !important;
                 }
 
                 .cls-filter-modal-close:hover {
