@@ -3374,7 +3374,7 @@ class Listing_System
                 <!-- Injected Modal Close Button (CSS handles visibility) -->
                 <div class="modal--header">
                     <h4>Filters</h4>
-                    <button id="cls-filter-modal-close" class="cls-filter-modal-close" type="button" aria-label="Close Filters">&times;</button>
+                    <button id="cls-filter-modal-close" class="cls-filter-modal-close" type="button" aria-label="Close Filters">Close &times;</button>
                 </div>
                 <form id="caravan-filter-form">
                     <input type="hidden" value="<?= $post_type ?>" name="post_type" id="post_type">
@@ -3842,7 +3842,6 @@ class Listing_System
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    position: absolute;
                     top: 15px;
                     right: 15px;
                     width: 32px;
