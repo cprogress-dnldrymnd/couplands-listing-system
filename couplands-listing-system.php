@@ -3780,10 +3780,16 @@ class Listing_System
                 display: none;
             }
 
+
+
             /* Modal Enforcement Breakpoint */
             @media (max-width: 1024px) {
                 .cls-mobile-filter-btn {
                     display: flex;
+                }
+                .cls-filter-modal-close span{
+                    font-size: 40px;
+                    line-height: 1;
                 }
 
                 /* Overlay Background */
