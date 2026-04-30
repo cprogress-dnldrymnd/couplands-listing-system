@@ -3470,7 +3470,7 @@ class Listing_System
                     ?>
 
                 </form>
-                <div class="apply-filter-holder">
+                <div class="apply-filter-holder cls-filter-modal-close-trigger">
                     <span>Apply Filters & Search</span>
                 </div>
                 <div class="showing">
