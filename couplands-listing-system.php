@@ -3374,7 +3374,7 @@ class Listing_System
                 <!-- Injected Modal Close Button (CSS handles visibility) -->
                 <div class="modal--header">
                     <h4>Filters</h4>
-                    <button id="cls-filter-modal-close" class="cls-filter-modal-close" type="button" aria-label="Close Filters">Close <span>&times;</span></button>
+                    <button id="cls-filter-modal-close" class="cls-filter-modal-close cls-filter-modal-close-trigger" type="button" aria-label="Close Filters">Close <span>&times;</span></button>
                 </div>
                 <form id="caravan-filter-form">
                     <input type="hidden" value="<?= $post_type ?>" name="post_type" id="post_type">
@@ -3470,6 +3470,9 @@ class Listing_System
                     ?>
 
                 </form>
+                <div class="apply-filter-holder">
+                    <span>Apply Filters & Search</span>
+                </div>
                 <div class="showing">
                     <span class="elementor-heading-title elementor-size-default">
                         Show
@@ -3954,7 +3957,7 @@ class Listing_System
                  */
                 const filterTrigger = document.getElementById('cls-mobile-filter-trigger');
                 const filterModal = document.getElementById('cls-filter-modal-wrapper');
-                const filterClose = document.getElementById('cls-filter-modal-close');
+                const filterClose = document.getElementsByClassName('cls-filter-modal-close-trigger');
 
                 if (filterTrigger && filterModal) {
                     filterTrigger.addEventListener('click', function() {
