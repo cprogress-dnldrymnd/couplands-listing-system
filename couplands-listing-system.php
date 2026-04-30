@@ -3488,7 +3488,7 @@ class Listing_System
                         </span>
                     </span>
                 </div>
-                <div class="reset-holder-box">
+                <div class="reset-holder-box reset-filter">
                     <a href="#">Reset</a>
                 </div>
             </div>
