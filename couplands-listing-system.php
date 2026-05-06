@@ -1334,7 +1334,7 @@ class Listing_System
         return ob_get_clean();
     }
 
-    /**
+ /**
      * Shortcode: Front-end Listing Gallery
      * [listing_gallery is_archive="1"]
      */
@@ -1350,15 +1350,11 @@ class Listing_System
             )
         );
 
-        // Get the Post ID
         $post_id = get_the_ID();
 
         // 1. Get the existing Gallery IDs
-        // --- UPDATED: Check for WooCommerce Product type ---
         if (get_post_type($post_id) === 'product') {
-            // WooCommerce Product Gallery
             $product = function_exists('wc_get_product') ? wc_get_product($post_id) : false;
-            // Fallback to meta if wc_get_product fails or isn't available
             if ($product) {
                 $gallery_ids = $product->get_gallery_image_ids();
             } else {
@@ -1366,7 +1362,6 @@ class Listing_System
                 $gallery_ids = (!empty($gallery_ids_raw)) ? explode(',', $gallery_ids_raw) : array();
             }
         } else {
-            // Standard Listing Gallery
             $gallery_ids_raw = get_post_meta($post_id, '_listing_gallery_ids', true);
             $gallery_ids = (!empty($gallery_ids_raw)) ? explode(',', $gallery_ids_raw) : array();
         }
@@ -1383,31 +1378,25 @@ class Listing_System
         $gallery_ids = array_unique($gallery_ids);
         $gallery_ids = array_filter($gallery_ids);
 
-        // --- NEW: Inject Global Placeholder if no media exists ---
+        // Inject Global Placeholder if no media exists
         if (empty($gallery_ids)) {
             $placeholder_id = get_option('couplands_placeholder_image');
             if ($placeholder_id) {
                 $gallery_ids[] = $placeholder_id;
             } else {
-                // Failsafe: If no images AND no placeholder is configured, return empty to prevent broken HTML structure
                 return ''; 
             }
         }
 
-        // --- UPDATE: Limit to 4 images if is_archive is true ---
+        // Limit to 4 images if is_archive is true
         if ($is_archive) {
             $gallery_ids = array_slice($gallery_ids, 0, 4);
         }
 
-        // Determine image size
         $size = ($is_archive) ? 'listing-grid' : 'large';
-
-        // Create a unique ID for this instance
         $slider_id = 'gallery-' . uniqid();
 
         if (!empty($gallery_ids)) {
-            // --- ADDED: Enqueue Fancybox via CDN for immediate functionality --- 
-            // (Note: Ideally, enqueue these in your functions.php using wp_enqueue_script)
         ?>
             <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0/dist/fancybox/fancybox.css" />
             <script src="https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0/dist/fancybox/fancybox.umd.js"></script>
@@ -1432,9 +1421,9 @@ class Listing_System
                     <?php } ?>
                     <div class="swiper-holder">
                         <?php if (!$is_archive) { ?>
+                            <!-- CHANGED: Removed data-fancybox, added data-trigger-gallery="0" -->
                             <a class="open-gallery" href="<?= wp_get_attachment_image_url($gallery_ids[0], 'full') ?>"
-                                data-fancybox="<?php echo $slider_id; ?>"
-                                data-caption="<?php echo wp_get_attachment_caption($gallery_ids[0]); ?>">
+                                data-trigger-gallery="0">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-image-fill" viewBox="0 0 16 16">
                                     <path d="M.002 3a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-12a2 2 0 0 1-2-2zm1 9v1a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9.5l-3.777-1.947a.5.5 0 0 0-.577.093l-3.71 3.71-2.66-1.772a.5.5 0 0 0-.63.062zm5-6.5a1.5 1.5 0 1 0-3 0 1.5 1.5 0 0 0 3 0" />
                                 </svg>
@@ -1447,13 +1436,13 @@ class Listing_System
 
                         <div id="<?php echo esc_attr($slider_id); ?>" class="swiper swiper-gallery">
                             <?php if ($is_archive) { ?>
-                                <a class="fake-button" href="<?= get_the_permalink($post_id) ?>">
-                                </a>
+                                <a class="fake-button" href="<?= get_the_permalink($post_id) ?>"></a>
                             <?php } ?>
                             <div class="swiper-wrapper">
                                 <?php foreach ($gallery_ids as $gallery_id) { ?>
                                     <div class="swiper-slide">
                                         <?php if ($is_archive == 0) { ?>
+                                            <!-- RETAINED: This is the single source of truth for Fancybox -->
                                             <a href="<?= wp_get_attachment_image_url($gallery_id, 'full') ?>"
                                                 data-fancybox="<?php echo $slider_id; ?>"
                                                 data-caption="<?php echo wp_get_attachment_caption($gallery_id); ?>">
@@ -1483,16 +1472,17 @@ class Listing_System
                         <?php } ?>
                     <?php } ?>
                     <?php if ($is_archive == 0) { ?>
-                    </div><?php
-                            $gallery_grid = array_slice($gallery_ids, 1, 4);
-                            ?>
+                    </div>
+                    <?php
+                    $gallery_grid = array_slice($gallery_ids, 1, 4);
+                    ?>
                     <div class="listing-single-gallery-right">
                         <div class="gallery-grid">
-                            <?php foreach ($gallery_grid as $gallery_id) { ?>
+                            <?php foreach ($gallery_grid as $index => $gallery_id) { ?>
                                 <div class="gallery-grid-item">
+                                    <!-- CHANGED: Removed data-fancybox, added data-trigger-gallery mapping to the correct index (+1 because slice starts at 1) -->
                                     <a href="<?= wp_get_attachment_image_url($gallery_id, 'full') ?>"
-                                        data-fancybox="<?php echo $slider_id; ?>"
-                                        data-caption="<?php echo wp_get_attachment_caption($gallery_id); ?>">
+                                        data-trigger-gallery="<?= $index + 1 ?>">
                                         <?= wp_get_attachment_image($gallery_id, $size) ?>
                                     </a>
                                 </div>
@@ -1505,16 +1495,21 @@ class Listing_System
                 jQuery(document).ready(function($) {
 
                     // 1. Initialize Fancybox
-                    // Uses the data-fancybox attribute we added to the HTML
                     if (typeof Fancybox !== 'undefined') {
                         Fancybox.bind("[data-fancybox]", {
-                            // Your custom options here
                             Thumbs: {
                                 type: "modern"
                             }
                         });
                     }
 
+                    // 2. Handle Custom Gallery Triggers (Prevents Fancybox Duplication)
+                    $('#<?php echo $slider_id; ?>').closest('.listing-single-gallery').find('[data-trigger-gallery]').on('click', function(e) {
+                        e.preventDefault();
+                        var targetIndex = $(this).data('trigger-gallery');
+                        // Proxy the click to the hidden anchor inside the corresponding Swiper slide
+                        $('#<?php echo $slider_id; ?> .swiper-slide').eq(targetIndex).find('a')[0].click();
+                    });
 
                     // 3. Initialize Swiper
                     if (typeof Swiper !== 'undefined') {
@@ -1546,9 +1541,9 @@ class Listing_System
                     display: block;
                 }
 
-                /* Optional: Style to indicate image is clickable */
                 .swiper-slide a,
-                .gallery-grid-item a {
+                .gallery-grid-item a,
+                .open-gallery {
                     cursor: zoom-in;
                     display: block;
                 }
