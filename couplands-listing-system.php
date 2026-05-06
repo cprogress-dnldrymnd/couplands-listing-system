@@ -3751,6 +3751,9 @@ class Listing_System
 
     /**
      * 6. JavaScript (jQuery)
+     * Outputs the frontend interactive logic, filtering mechanics, AJAX handling, and layout calculations.
+     *
+     * @param array $filter_fields Active filters configured from the backend.
      */
     public function output_js($filter_fields = [])
     {
@@ -3782,8 +3785,6 @@ class Listing_System
             .cls-filter-modal-close {
                 display: none;
             }
-
-
 
             /* Modal Enforcement Breakpoint */
             @media (max-width: 1024px) {
@@ -3873,6 +3874,7 @@ class Listing_System
                     font-size: 12px;
                     min-height: 47px;
                 }
+
                 .cls-filter-modal-content {
                     width: calc(100% - 25px);
                 }
@@ -3889,6 +3891,66 @@ class Listing_System
 
                 // Active filters passed from PHP (Custom Names)
                 const activeFilters = <?php echo json_encode($filter_fields); ?>;
+
+                /**
+                 * Dynamically equalizes heights of elements based on their '.mh-*' modifier classes.
+                 * Extracts unique modifier classes attached to '.mh' and normalizes heights per group.
+                 */
+                const matchHeightsGrouped = () => {
+                    const uniqueModifiers = new Set();
+
+                    // Extract all modifier classes starting with 'mh-' linked to the '.mh' base class
+                    $('.mh').each(function() {
+                        const classAttr = $(this).attr('class');
+                        if (!classAttr) return; // Guard clause against empty class attributes
+
+                        const classes = classAttr.split(/\s+/);
+                        classes.forEach(cls => {
+                            if (cls.startsWith('mh-') && cls !== 'mh') {
+                                uniqueModifiers.add(cls);
+                            }
+                        });
+                    });
+
+                    // Process each identified subgroup individually
+                    uniqueModifiers.forEach(modifierClass => {
+                        const $elements = $(`.mh.${modifierClass}`);
+                        let maxHeight = 0;
+
+                        // Reset height to recalculate natural dimensions (crucial for responsive grid reflows)
+                        $elements.css('height', 'auto');
+
+                        // Calculate the maximum outer height within the current node list
+                        $elements.each(function() {
+                            const currentHeight = $(this).outerHeight();
+                            if (currentHeight > maxHeight) {
+                                maxHeight = currentHeight;
+                            }
+                        });
+
+                        // Enforce the calculated maximum height across the entire group
+                        $elements.css('height', `${maxHeight}px`);
+                    });
+                };
+
+                /**
+                 * Debounce utility to prevent layout thrashing and performance degradation 
+                 * during rapid window resizing events.
+                 * 
+                 * @param {Function} func - The callback function to debounce.
+                 * @param {number} wait - The delay in milliseconds before execution.
+                 * @returns {Function} - The throttled/debounced function.
+                 */
+                const debounce = (func, wait) => {
+                    let timeout;
+                    return function(...args) {
+                        clearTimeout(timeout);
+                        timeout = setTimeout(() => func.apply(this, args), wait);
+                    };
+                };
+
+                // Attach debounced recalculation payload to window resize
+                $(window).on('resize', debounce(matchHeightsGrouped, 250));
 
                 // Toggle Accordion
                 $('.accordion-header').on('click', function() {
@@ -3953,8 +4015,6 @@ class Listing_System
                     }
                 });
 
-
-
                 /**
                  * Modal UI State Controller
                  * Manages class toggling and body scroll locking for the filter view.
@@ -3963,9 +4023,6 @@ class Listing_System
                 const filterModal = document.getElementById('cls-filter-modal-wrapper');
                 const filterCloseElements = document.querySelectorAll('.cls-filter-modal-close-trigger');
 
-
-
-
                 if (filterTrigger && filterModal) {
                     filterTrigger.addEventListener('click', function() {
                         filterModal.classList.add('is-active');
@@ -3973,13 +4030,15 @@ class Listing_System
                     });
                 }
 
+                /**
+                 * Closes the mobile filter modal and restores body scroll.
+                 */
                 const closeModal = function() {
                     if (filterModal) {
                         filterModal.classList.remove('is-active');
                         $('body').css('overflow', ''); // Restore scroll
                     }
                 };
-
 
                 if (filterCloseElements.length > 0) {
                     filterCloseElements.forEach(function(el) {
@@ -3994,6 +4053,11 @@ class Listing_System
                     }
                 });
 
+                /**
+                 * Executes the AJAX request to fetch and render listings based on active filters.
+                 *
+                 * @param {boolean} isLoadMore Dictates whether to append to the DOM or replace entirely.
+                 */
                 function fetchCaravans(isLoadMore) {
                     $resultContainer.addClass('caravan-loader');
                     var formData = new FormData($form[0]);
@@ -4035,6 +4099,12 @@ class Listing_System
                                 }
 
                                 updateLoadMoreButton();
+
+                                // Trigger height matching immediately upon DOM injection
+                                matchHeightsGrouped();
+
+                                // Failsafe execution for layout recalculation once sub-resources (like images) resolve
+                                setTimeout(matchHeightsGrouped, 300);
                             }
                             $resultContainer.removeClass('caravan-loader');
                         },
@@ -4044,7 +4114,9 @@ class Listing_System
                     });
                 }
 
-                // NEW: Logic to add/remove/hide Load More Button
+                /**
+                 * Evaluates the current pagination state and injects/toggles the Load More button.
+                 */
                 function updateLoadMoreButton() {
                     const btnId = 'listing-load-more-btn';
                     let $btn = $('#' + btnId);
@@ -4064,7 +4136,9 @@ class Listing_System
                 }
 
                 /**
-                 * Update Filter Facets (Disable empty options)
+                 * Updates filter inputs (disabling empty options) based on available faceted data.
+                 * 
+                 * @param {Object} facets JSON object containing populated filter values from the database.
                  */
                 function updateFilters(facets) {
 
