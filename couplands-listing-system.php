@@ -1383,6 +1383,17 @@ class Listing_System
         $gallery_ids = array_unique($gallery_ids);
         $gallery_ids = array_filter($gallery_ids);
 
+        // --- NEW: Inject Global Placeholder if no media exists ---
+        if (empty($gallery_ids)) {
+            $placeholder_id = get_option('couplands_placeholder_image');
+            if ($placeholder_id) {
+                $gallery_ids[] = $placeholder_id;
+            } else {
+                // Failsafe: If no images AND no placeholder is configured, return empty to prevent broken HTML structure
+                return ''; 
+            }
+        }
+
         // --- UPDATE: Limit to 4 images if is_archive is true ---
         if ($is_archive) {
             $gallery_ids = array_slice($gallery_ids, 0, 4);
@@ -1840,6 +1851,9 @@ class Listing_System
         // NEW: Model Grid Template Settings
         register_setting('couplands_general_settings', 'couplands_model_grid_item_template');
 
+        // NEW: Fallback Placeholder Image
+        register_setting('couplands_general_settings', 'couplands_placeholder_image');
+
         // --- ADDED: Meta Fields Settings ---
         register_setting('couplands_meta_fields_group', 'couplands_meta_fields_config');
     }
@@ -1852,7 +1866,7 @@ class Listing_System
         // Enqueue media for styling consistency
         wp_enqueue_style('wp-color-picker');
         wp_enqueue_script('wp-color-picker');
-
+        wp_enqueue_media();
         // --- NEW: Enqueue Sortable for Drag and Drop ---
         wp_enqueue_script('jquery-ui-sortable');
 
@@ -2139,6 +2153,59 @@ class Listing_System
                         <?php endforeach; ?>
                     </select>
                     <p class="description">Select the Elementor Template used for individual items in the model grid.</p>
+                </td>
+            </tr>
+            <tr>
+                <th scope="row">Fallback Placeholder Image</th>
+                <td>
+                    <?php
+                    $placeholder_id = get_option('couplands_placeholder_image');
+                    $placeholder_url = $placeholder_id ? wp_get_attachment_image_url($placeholder_id, 'medium') : '';
+                    ?>
+                    <div class="couplands-placeholder-preview" style="margin-bottom:10px;">
+                        <?php if ($placeholder_url) : ?>
+                            <img src="<?php echo esc_url($placeholder_url); ?>" style="max-width:200px; height:auto; border:1px solid #ccc; padding:3px; background:#fff;" />
+                        <?php endif; ?>
+                    </div>
+                    <input type="hidden" name="couplands_placeholder_image" id="couplands_placeholder_image" value="<?php echo esc_attr($placeholder_id); ?>" />
+                    <button type="button" class="button" id="couplands_upload_placeholder">Select Placeholder Image</button>
+                    <button type="button" class="button button-link-delete" id="couplands_remove_placeholder" style="<?php echo !$placeholder_id ? 'display:none;' : ''; ?>">Remove</button>
+
+                    <p class="description">This image will automatically display in the gallery and grid shortcodes if a listing has no images attached.</p>
+
+                    <script>
+                        jQuery(document).ready(function($) {
+                            var frame;
+                            $('#couplands_upload_placeholder').on('click', function(e) {
+                                e.preventDefault();
+                                if (frame) {
+                                    frame.open();
+                                    return;
+                                }
+                                frame = wp.media({
+                                    title: 'Select Placeholder Image',
+                                    button: {
+                                        text: 'Use this image'
+                                    },
+                                    multiple: false
+                                });
+                                frame.on('select', function() {
+                                    var attachment = frame.state().get('selection').first().toJSON();
+                                    $('#couplands_placeholder_image').val(attachment.id);
+                                    $('.couplands-placeholder-preview').html('<img src="' + (attachment.sizes.medium ? attachment.sizes.medium.url : attachment.url) + '" style="max-width:200px; height:auto; border:1px solid #ccc; padding:3px; background:#fff;" />');
+                                    $('#couplands_remove_placeholder').show();
+                                });
+                                frame.open();
+                            });
+
+                            $('#couplands_remove_placeholder').on('click', function(e) {
+                                e.preventDefault();
+                                $('#couplands_placeholder_image').val('');
+                                $('.couplands-placeholder-preview').empty();
+                                $(this).hide();
+                            });
+                        });
+                    </script>
                 </td>
             </tr>
         </table>
