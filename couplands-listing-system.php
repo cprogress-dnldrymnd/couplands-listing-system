@@ -1486,7 +1486,7 @@ class Listing_System
                                             $is_local = true;
                                         }
 
-                                        $thumb_url = $yt_id ? "https://img.youtube.com/vi/{$yt_id}/maxresdefault.jpg" : "";
+                                        $thumb_url = $yt_id ? "https://img.youtube.com/vi/{$yt_id}/hqdefault.jpg" : "";
                                         $fancybox_thumb = $thumb_url ? $thumb_url : $fallback_thumb;
                                 ?>
                                         <div class="swiper-slide video-item" style="background: #000;">
