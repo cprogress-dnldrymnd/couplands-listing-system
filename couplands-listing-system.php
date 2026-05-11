@@ -1526,9 +1526,11 @@ class Listing_System
                     </div>
                 </div><?php } ?>
 
-            <script>
+      <script>
                 jQuery(document).ready(function($) {
                     
+                    var $slider = $('#<?php echo $slider_id; ?>');
+                    var $galleryWrapper = $slider.closest('.listing-single-gallery');
                     var mainGallerySwiper;
 
                     // 1. Initialize Fancybox
@@ -1542,16 +1544,17 @@ class Listing_System
                     }
 
                     // 2. Handle Custom Gallery Triggers (Prevents Fancybox Duplication)
-                    $('#<?php echo $slider_id; ?>').closest('.listing-single-gallery').off('click', '[data-trigger-gallery]').on('click', '[data-trigger-gallery]', function(e) {
+                    // SCOPED to this specific gallery wrapper
+                    $galleryWrapper.off('click', '[data-trigger-gallery]').on('click', '[data-trigger-gallery]', function(e) {
                         e.preventDefault();
                         var targetIndex = $(this).data('trigger-gallery');
-                        $('#<?php echo $slider_id; ?> .swiper-slide').eq(targetIndex).find('a')[0].click();
+                        $slider.find('.swiper-slide').eq(targetIndex).find('a')[0].click();
                     });
 
                     // 3. Custom Tag Navigation (Video / Matterport / Images)
-                    $('.gallery-nav-tags').off('click', '.gallery-tag').on('click', '.gallery-tag', function(e) {
+                    // SCOPED to this specific gallery wrapper
+                    $galleryWrapper.find('.gallery-nav-tags').off('click', '.gallery-tag').on('click', '.gallery-tag', function(e) {
                         
-                        // Prevent click bubbling causing issues
                         e.preventDefault();
                         e.stopPropagation();
 
@@ -1572,11 +1575,7 @@ class Listing_System
                                     dragToClose: false, 
                                     backdropClick: "close", 
                                     Toolbar: {
-                                        display: {
-                                            left: [],
-                                            middle: [],
-                                            right: ["close"],
-                                        },
+                                        display: { left: [], middle: [], right: ["close"] },
                                     }
                                 });
                             }
@@ -1584,13 +1583,18 @@ class Listing_System
                         }
 
                         // Handle Slide Navigation (Video or Images)
-                        var slideTarget = $(this).data('trigger-slide');
-                        if (typeof slideTarget !== 'undefined') {
-                            $('.gallery-nav-tags .gallery-tag').removeClass('active');
+                        // Use .attr to safely get the value and parse it as an Integer
+                        var slideTarget = $(this).attr('data-trigger-slide');
+                        
+                        if (typeof slideTarget !== 'undefined' && slideTarget !== false) {
+                            $galleryWrapper.find('.gallery-tag').removeClass('active');
                             $(this).addClass('active');
 
-                            if (mainGallerySwiper) {
-                                mainGallerySwiper.slideTo(slideTarget);
+                            // Bulletproof way to get the Swiper instance
+                            var swiperInstance = $slider[0].swiper || mainGallerySwiper;
+                            
+                            if (swiperInstance) {
+                                swiperInstance.slideTo(parseInt(slideTarget));
                             }
                         }
                     });
@@ -1609,13 +1613,17 @@ class Listing_System
                             // Update active tag class if user manually swipes to a video
                             on: {
                                 slideChange: function () {
-                                    var isVideoSlide = $(this.slides[this.activeIndex]).hasClass('video-item');
-                                    $('.gallery-nav-tags .gallery-tag').removeClass('active');
+                                    var activeIndex = this.activeIndex;
+                                    var activeSlide = this.slides[activeIndex];
+                                    var isVideoSlide = $(activeSlide).hasClass('video-item');
+                                    
+                                    // Scope the class updates so it doesn't affect other sliders on the page
+                                    $galleryWrapper.find('.gallery-tag').removeClass('active');
                                     
                                     if(isVideoSlide) {
-                                        $('.gallery-nav-tags .gallery-tag[data-trigger-slide="<?= $first_video_index ?>"]').addClass('active');
+                                        $galleryWrapper.find('.gallery-tag[data-trigger-slide="<?= $first_video_index ?>"]').addClass('active');
                                     } else {
-                                        $('.gallery-nav-tags .gallery-tag[data-trigger-slide="0"]').addClass('active');
+                                        $galleryWrapper.find('.gallery-tag[data-trigger-slide="0"]').addClass('active');
                                     }
                                 }
                             }
