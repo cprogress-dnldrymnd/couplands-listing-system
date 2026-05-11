@@ -1479,7 +1479,7 @@ class Listing_System
                                         <div class="swiper-slide video-item">
                                             <a href="<?= esc_url($vid_url) ?>" data-fancybox="<?php echo $slider_id; ?>">
                                                 <?php if ($thumb_url) { ?>
-                                                    <img src="<?= esc_url($thumb_url) ?>" alt="Video Thumbnail" style="width:100%; height:auto; display:block; opacity:0.8;" />
+                                                    <img src="<?= esc_url($thumb_url) ?>" alt="Video Thumbnail" />
                                                 <?php } else { ?>
                                                     <div class="video-placeholder">Video</div>
                                                 <?php } ?>
