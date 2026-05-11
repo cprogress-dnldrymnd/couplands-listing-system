@@ -1526,7 +1526,7 @@ class Listing_System
                     </div>
                 </div><?php } ?>
 
-            <script>
+         <script>
                 jQuery(document).ready(function($) {
 
                     // 1. Initialize Fancybox
@@ -1540,14 +1540,16 @@ class Listing_System
                     }
 
                     // 2. Handle Custom Gallery Triggers (Prevents Fancybox Duplication)
-                    $('#<?php echo $slider_id; ?>').closest('.listing-single-gallery').find('[data-trigger-gallery]').on('click', function(e) {
+                    // Added .off() to prevent duplicate event bindings
+                    $('#<?php echo $slider_id; ?>').closest('.listing-single-gallery').off('click', '[data-trigger-gallery]').on('click', '[data-trigger-gallery]', function(e) {
                         e.preventDefault();
                         var targetIndex = $(this).data('trigger-gallery');
                         $('#<?php echo $slider_id; ?> .swiper-slide').eq(targetIndex).find('a')[0].click();
                     });
 
                     // 3. Custom Tag Navigation (Video / Matterport / Images)
-                    $('.gallery-nav-tags .gallery-tag').on('click', function(e) {
+                    // Added .off() here as well to stop multiple Fancyboxes from stacking
+                    $('.gallery-nav-tags').off('click', '.gallery-tag').on('click', '.gallery-tag', function(e) {
                         
                         // Prevent click bubbling causing issues
                         e.preventDefault();
@@ -1567,7 +1569,9 @@ class Listing_System
                             }
                             
                             if (typeof Fancybox !== 'undefined') {
-                                // Added explicit closing behaviors to prevent iframe capture lock
+                                // Force close any existing hidden instances first
+                                Fancybox.close(); 
+                                
                                 Fancybox.show(fancyOpts, {
                                     dragToClose: false, 
                                     backdropClick: "close", 
