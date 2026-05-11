@@ -1512,7 +1512,7 @@ class Listing_System
                                     <div class="gallery-grid-item video-item">
                                         <a href="<?= esc_url($vid_url) ?>" data-fancybox="listing-videos">
                                             <?php if ($thumb_url) { ?>
-                                                <img src="<?= esc_url($thumb_url) ?>" alt="Video Thumbnail" />
+                                                <img src="<?= esc_url($thumb_url) ?>" alt="Video Thumbnail" style="width:100%; height:100%; object-fit:cover; opacity:0.8;" />
                                             <?php } else { ?>
                                                 <div class="video-placeholder">Video</div>
                                             <?php } ?>
@@ -1555,7 +1555,14 @@ class Listing_System
                         if (type === 'matterport' || type === 'single-video') {
                             var url = $(this).data('url');
                             var fancyOpts = [{ src: url }];
-                            if (type === 'matterport') fancyOpts[0].type = 'iframe';
+                            
+                            // Let Fancybox natively handle YouTube/Vimeo links.
+                            // Only force iframe if it's a true Matterport link (or other external 3D tour).
+                            if (type === 'matterport') {
+                                if (!url.match(/(youtube\.com|youtu\.be|vimeo\.com)/i)) {
+                                    fancyOpts[0].type = 'iframe';
+                                }
+                            }
                             
                             if (typeof Fancybox !== 'undefined') {
                                 Fancybox.show(fancyOpts);
@@ -1640,6 +1647,7 @@ class Listing_System
                     width: 100%;
                     color: #fff;
                     font-size: 14px;
+                    background: #181C21;
                 }
                 .video-item .play-icon {
                     position: absolute;
@@ -1660,7 +1668,6 @@ class Listing_System
         }
         return ob_get_clean();
     }
-
     /**
      * Shortcode: Listing Feature List
      * [listing_feature key="interior_features"]
