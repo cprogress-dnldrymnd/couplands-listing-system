@@ -1625,12 +1625,11 @@ class Listing_System
                 .gallery-target-videos {
                     display: none;
                 }
-                .gallery-target-videos[style*="display: block;"] {
+                .gallery-target-videos[style*="display: block"] {
                     display: grid !important;
                 }
                 .video-item {
                     position: relative;
-                    background: #181C21;
                 }
                 .video-item img {
                     width: 100%;
