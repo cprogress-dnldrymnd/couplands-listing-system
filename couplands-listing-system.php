@@ -1334,7 +1334,7 @@ class Listing_System
         return ob_get_clean();
     }
 
- /**
+/**
      * Shortcode: Front-end Listing Gallery
      * [listing_gallery is_archive="1"]
      */
@@ -1404,24 +1404,36 @@ class Listing_System
             <?php if ($is_archive == 0) { ?>
                 <?php
                 $per_month = function_exists('get_field') ? get_field('per_month') : '';
-                $videos = function_exists('get_field') ? get_field('videos') : '';
                 $fmt_month = function_exists('price_format') ? price_format($per_month) : $per_month;
+                
+                // Fetch and parse Videos & 360 Tour
+                $videos_raw = function_exists('get_field') ? get_field('videos') : '';
+                $videos_list = !empty($videos_raw) ? array_filter(array_map('trim', explode(',', $videos_raw))) : [];
+                $tour_360 = function_exists('get_field') ? get_field('tour_360') : '';
                 ?>
                 <div class="listing-single-gallery">
                     <div class="listing-single-gallery-left">
 
-                        <div class="tags">
-                            <?php if ($videos) { ?>
-                                <div>Video</div>
+                        <div class="tags gallery-nav-tags">
+                            <?php if (!empty($videos_list)) { 
+                                // If only 1 video, launch directly. If multiple, swap sidebar.
+                                if (count($videos_list) === 1) { ?>
+                                    <div class="gallery-tag" data-type="single-video" data-url="<?= esc_url($videos_list[0]); ?>">Video</div>
+                                <?php } else { ?>
+                                    <div class="gallery-tag" data-target="videos">Video</div>
+                                <?php } 
+                            } ?>
+
+                            <?php if (!empty($tour_360)) { ?>
+                                <div class="gallery-tag" data-type="matterport" data-url="<?= esc_url($tour_360); ?>">Matterport</div>
                             <?php } ?>
-                            <div>Matterport</div>
-                            <div><?= count($gallery_ids) ?> images</div>
+                            
+                            <div class="gallery-tag active" data-target="images"><?= count($gallery_ids) ?> images</div>
                         </div>
 
                     <?php } ?>
                     <div class="swiper-holder">
                         <?php if (!$is_archive) { ?>
-                            <!-- CHANGED: Removed data-fancybox, added data-trigger-gallery="0" -->
                             <a class="open-gallery" href="<?= wp_get_attachment_image_url($gallery_ids[0], 'full') ?>"
                                 data-trigger-gallery="0">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-image-fill" viewBox="0 0 16 16">
@@ -1442,7 +1454,6 @@ class Listing_System
                                 <?php foreach ($gallery_ids as $gallery_id) { ?>
                                     <div class="swiper-slide">
                                         <?php if ($is_archive == 0) { ?>
-                                            <!-- RETAINED: This is the single source of truth for Fancybox -->
                                             <a href="<?= wp_get_attachment_image_url($gallery_id, 'full') ?>"
                                                 data-fancybox="<?php echo $slider_id; ?>"
                                                 data-caption="<?php echo wp_get_attachment_caption($gallery_id); ?>">
@@ -1477,10 +1488,9 @@ class Listing_System
                     $gallery_grid = array_slice($gallery_ids, 1, 4);
                     ?>
                     <div class="listing-single-gallery-right">
-                        <div class="gallery-grid">
+                        <div class="gallery-grid gallery-target-images active">
                             <?php foreach ($gallery_grid as $index => $gallery_id) { ?>
                                 <div class="gallery-grid-item">
-                                    <!-- CHANGED: Removed data-fancybox, added data-trigger-gallery mapping to the correct index (+1 because slice starts at 1) -->
                                     <a href="<?= wp_get_attachment_image_url($gallery_id, 'full') ?>"
                                         data-trigger-gallery="<?= $index + 1 ?>">
                                         <?= wp_get_attachment_image($gallery_id, $size) ?>
@@ -1488,6 +1498,32 @@ class Listing_System
                                 </div>
                             <?php } ?>
                         </div>
+                        
+                        <?php if (count($videos_list) > 1) { ?>
+                            <div class="gallery-grid gallery-target-videos" style="display: none;">
+                                <?php foreach ($videos_list as $vid_url) { 
+                                    // Basic extraction for YouTube Thumbnails
+                                    $yt_id = '';
+                                    if (preg_match('%(?:youtube(?:-nocookie)?\.com/(?:[^/]+/.+/|(?:v|e(?:mbed)?)/|.*[?&]v=)|youtu\.be/)([^"&?/\s]{11})%i', $vid_url, $match)) {
+                                        $yt_id = $match[1];
+                                    }
+                                    $thumb_url = $yt_id ? "https://img.youtube.com/vi/{$yt_id}/mqdefault.jpg" : ""; 
+                                ?>
+                                    <div class="gallery-grid-item video-item">
+                                        <a href="<?= esc_url($vid_url) ?>" data-fancybox="listing-videos">
+                                            <?php if ($thumb_url) { ?>
+                                                <img src="<?= esc_url($thumb_url) ?>" alt="Video Thumbnail" />
+                                            <?php } else { ?>
+                                                <div class="video-placeholder">Video</div>
+                                            <?php } ?>
+                                            <div class="play-icon">
+                                                <svg width="24" height="24" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg"><path d="M8 5V19L19 12L8 5Z"/></svg>
+                                            </div>
+                                        </a>
+                                    </div>
+                                <?php } ?>
+                            </div>
+                        <?php } ?>
                     </div>
                 </div><?php } ?>
 
@@ -1511,7 +1547,35 @@ class Listing_System
                         $('#<?php echo $slider_id; ?> .swiper-slide').eq(targetIndex).find('a')[0].click();
                     });
 
-                    // 3. Initialize Swiper
+                    // 3. Custom Tag Navigation (Video / Matterport / Images)
+                    $('.gallery-nav-tags .gallery-tag').on('click', function() {
+                        var type = $(this).data('type');
+                        
+                        // Handle Single Video or Matterport (Direct Fancybox Trigger)
+                        if (type === 'matterport' || type === 'single-video') {
+                            var url = $(this).data('url');
+                            var fancyOpts = [{ src: url }];
+                            if (type === 'matterport') fancyOpts[0].type = 'iframe';
+                            
+                            if (typeof Fancybox !== 'undefined') {
+                                Fancybox.show(fancyOpts);
+                            }
+                            return; 
+                        }
+
+                        // Handle Multi-Video vs Images Panel Swapping
+                        var target = $(this).data('target');
+                        if (target) {
+                            $('.gallery-nav-tags .gallery-tag[data-target]').removeClass('active');
+                            $(this).addClass('active');
+
+                            // Switch right-hand grids
+                            $('.listing-single-gallery-right .gallery-grid').hide().removeClass('active');
+                            $('.listing-single-gallery-right .gallery-target-' + target).fadeIn().addClass('active');
+                        }
+                    });
+
+                    // 4. Initialize Swiper
                     if (typeof Swiper !== 'undefined') {
                         new Swiper('#<?php echo $slider_id; ?>', {
                             loop: false,
@@ -1546,6 +1610,53 @@ class Listing_System
                 .open-gallery {
                     cursor: zoom-in;
                     display: block;
+                }
+
+                /* New Tags Navigation Styling */
+                .gallery-nav-tags .gallery-tag {
+                    cursor: pointer;
+                    transition: opacity 0.3s ease;
+                }
+                .gallery-nav-tags .gallery-tag:not(.active) {
+                    opacity: 0.7;
+                }
+                
+                /* Video Thumbnail Styles */
+                .gallery-target-videos {
+                    display: none;
+                }
+                .video-item {
+                    position: relative;
+                    background: #181C21;
+                }
+                .video-item img {
+                    width: 100%;
+                    height: 100%;
+                    object-fit: cover;
+                    opacity: 0.8;
+                }
+                .video-placeholder {
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    height: 100%;
+                    width: 100%;
+                    color: #fff;
+                    font-size: 14px;
+                }
+                .video-item .play-icon {
+                    position: absolute;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%);
+                    background: rgba(0,0,0,0.6);
+                    border-radius: 50%;
+                    width: 40px;
+                    height: 40px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    pointer-events: none;
                 }
             </style>
         <?php
