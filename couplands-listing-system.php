@@ -1466,42 +1466,30 @@ class Listing_System
                                     </div>
                                 <?php } ?>
 
-                               <?php 
-if (!$is_archive && !empty($videos_list)) {
-    foreach ($videos_list as $vid_url) { 
-        $yt_id = '';
-        $is_local = false;
-        
-        // Check if it's a YouTube link
-        if (preg_match('%(?:youtube(?:-nocookie)?\.com/(?:[^/]+/.+/|(?:v|e(?:mbed)?)/|.*[?&]v=)|youtu\.be/)([^"&?/\s]{11})%i', $vid_url, $match)) {
-            $yt_id = $match[1];
-        } else {
-            // If it's not YouTube, assume it's a local/direct video file
-            $is_local = true;
-        }
-        
-        $thumb_url = $yt_id ? "https://img.youtube.com/vi/{$yt_id}/hqdefault.jpg" : ""; 
-    ?>
-        <div class="swiper-slide video-item" style="background: #000;">
-            <a href="<?= esc_url($vid_url) ?>" data-fancybox="<?php echo $slider_id; ?>" style="position: relative; display: block; height: 100%;">
-                
-                <?php if ($thumb_url) { ?>
-                    <img src="<?= esc_url($thumb_url) ?>" alt="Video Thumbnail" style="width:100%; height:100%; object-fit:cover; display:block; opacity:0.7;" />
-                
-                <?php } elseif ($is_local) { ?>
-                    <video src="<?= esc_url($vid_url) ?>#t=0.1" preload="metadata" muted playsinline style="width:100%; height:100%; object-fit:cover; display:block; opacity:0.7; pointer-events:none;"></video>
-                
-                <?php } else { ?>
-                    <div class="video-placeholder">Video</div>
-                <?php } ?>
-                
-                <div class="play-icon" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 2;">
-                    <svg width="32" height="32" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg"><path d="M8 5V19L19 12L8 5Z"/></svg>
-                </div>
-            </a>
-        </div>
-    <?php }
-} ?>
+                                <?php 
+                                if (!$is_archive && !empty($videos_list)) {
+                                    foreach ($videos_list as $vid_url) { 
+                                        $yt_id = '';
+                                        if (preg_match('%(?:youtube(?:-nocookie)?\.com/(?:[^/]+/.+/|(?:v|e(?:mbed)?)/|.*[?&]v=)|youtu\.be/)([^"&?/\s]{11})%i', $vid_url, $match)) {
+                                            $yt_id = $match[1];
+                                        }
+                                        // Use maxresdefault for better quality fallback
+                                        $thumb_url = $yt_id ? "https://img.youtube.com/vi/{$yt_id}/maxresdefault.jpg" : ""; 
+                                    ?>
+                                        <div class="swiper-slide video-item">
+                                            <a href="<?= esc_url($vid_url) ?>" data-fancybox="<?php echo $slider_id; ?>">
+                                                <?php if ($thumb_url) { ?>
+                                                    <img src="<?= esc_url($thumb_url) ?>" alt="Video Thumbnail" />
+                                                <?php } else { ?>
+                                                    <div class="video-placeholder">Video</div>
+                                                <?php } ?>
+                                                <div class="play-icon">
+                                                    <svg width="32" height="32" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg"><path d="M8 5V19L19 12L8 5Z"/></svg>
+                                                </div>
+                                            </a>
+                                        </div>
+                                    <?php }
+                                } ?>
 
                             </div>
                             <div class="swiper-button-prev"></div>
