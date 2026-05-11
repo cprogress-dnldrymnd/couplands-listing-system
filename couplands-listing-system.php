@@ -1334,7 +1334,7 @@ class Listing_System
         return ob_get_clean();
     }
 
-/**
+    /**
      * Shortcode: Front-end Listing Gallery
      * [listing_gallery is_archive="1"]
      */
@@ -1384,7 +1384,7 @@ class Listing_System
             if ($placeholder_id) {
                 $gallery_ids[] = $placeholder_id;
             } else {
-                return ''; 
+                return '';
             }
         }
 
@@ -1405,12 +1405,12 @@ class Listing_System
                 <?php
                 $per_month = function_exists('get_field') ? get_field('per_month') : '';
                 $fmt_month = function_exists('price_format') ? price_format($per_month) : $per_month;
-                
+
                 // Fetch and parse Videos & 360 Tour
                 $videos_raw = function_exists('get_field') ? get_field('videos') : '';
                 $videos_list = !empty($videos_raw) ? array_filter(array_map('trim', explode(',', $videos_raw))) : [];
                 $tour_360 = function_exists('get_field') ? get_field('tour_360') : '';
-                
+
                 // Calculate where the videos start in the slider
                 $first_video_index = count($gallery_ids);
                 ?>
@@ -1425,7 +1425,7 @@ class Listing_System
                             <?php if (!empty($tour_360)) { ?>
                                 <div class="gallery-tag" data-type="matterport" data-url="<?= esc_url($tour_360); ?>">Matterport</div>
                             <?php } ?>
-                            
+
                             <div class="gallery-tag active" data-trigger-slide="0"><?= count($gallery_ids) ?> images</div>
                         </div>
 
@@ -1449,7 +1449,7 @@ class Listing_System
                                 <a class="fake-button" href="<?= get_the_permalink($post_id) ?>"></a>
                             <?php } ?>
                             <div class="swiper-wrapper">
-                                
+
                                 <?php foreach ($gallery_ids as $gallery_id) { ?>
                                     <div class="swiper-slide">
                                         <?php if ($is_archive == 0) { ?>
@@ -1466,42 +1466,44 @@ class Listing_System
                                     </div>
                                 <?php } ?>
 
-                               <?php 
-if (!$is_archive && !empty($videos_list)) {
-    foreach ($videos_list as $vid_url) { 
-        $yt_id = '';
-        $is_local = false;
-        
-        // Check if it's a YouTube link
-        if (preg_match('%(?:youtube(?:-nocookie)?\.com/(?:[^/]+/.+/|(?:v|e(?:mbed)?)/|.*[?&]v=)|youtu\.be/)([^"&?/\s]{11})%i', $vid_url, $match)) {
-            $yt_id = $match[1];
-        } else {
-            // If it's not YouTube, assume it's a local/direct video file
-            $is_local = true;
-        }
-        
-        $thumb_url = $yt_id ? "https://img.youtube.com/vi/{$yt_id}/hqdefault.jpg" : ""; 
-    ?>
-        <div class="swiper-slide video-item" style="background: #000;">
-            <a href="<?= esc_url($vid_url) ?>" data-fancybox="<?php echo $slider_id; ?>" style="position: relative; display: block; height: 100%;">
-                
-                <?php if ($thumb_url) { ?>
-                    <img src="<?= esc_url($thumb_url) ?>" alt="Video Thumbnail" style="width:100%; height:100%; object-fit:cover; display:block; opacity:0.7;" />
-                
-                <?php } elseif ($is_local) { ?>
-                    <video src="<?= esc_url($vid_url) ?>#t=0.1" preload="metadata" muted playsinline style="width:100%; height:100%; object-fit:cover; display:block; opacity:0.7; pointer-events:none;"></video>
-                
-                <?php } else { ?>
-                    <div class="video-placeholder">Video</div>
-                <?php } ?>
-                
-                <div class="play-icon" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 2;">
-                    <svg width="32" height="32" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg"><path d="M8 5V19L19 12L8 5Z"/></svg>
-                </div>
-            </a>
-        </div>
-    <?php }
-} ?>
+                                <?php
+                                if (!$is_archive && !empty($videos_list)) {
+                                    foreach ($videos_list as $vid_url) {
+                                        $yt_id = '';
+                                        $is_local = false;
+
+                                        // Check if it's a YouTube link
+                                        if (preg_match('%(?:youtube(?:-nocookie)?\.com/(?:[^/]+/.+/|(?:v|e(?:mbed)?)/|.*[?&]v=)|youtu\.be/)([^"&?/\s]{11})%i', $vid_url, $match)) {
+                                            $yt_id = $match[1];
+                                        } else {
+                                            // If it's not YouTube, assume it's a local/direct video file
+                                            $is_local = true;
+                                        }
+
+                                        $thumb_url = $yt_id ? "https://img.youtube.com/vi/{$yt_id}/maxresdefault.jpg" : "";
+                                ?>
+                                        <div class="swiper-slide video-item" style="background: #000;">
+                                            <a href="<?= esc_url($vid_url) ?>" data-fancybox="<?php echo $slider_id; ?>" style="position: relative; display: block; height: 100%;">
+
+                                                <?php if ($thumb_url) { ?>
+                                                    <img src="<?= esc_url($thumb_url) ?>" alt="Video Thumbnail" style="width:100%; height:100%; object-fit:cover; display:block; opacity:0.7;" />
+
+                                                <?php } elseif ($is_local) { ?>
+                                                    <video src="<?= esc_url($vid_url) ?>#t=0.1" preload="metadata" muted playsinline style="width:100%; height:100%; object-fit:cover; display:block; opacity:0.7; pointer-events:none;"></video>
+
+                                                <?php } else { ?>
+                                                    <div class="video-placeholder">Video</div>
+                                                <?php } ?>
+
+                                                <div class="play-icon" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 2;">
+                                                    <svg width="32" height="32" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg">
+                                                        <path d="M8 5V19L19 12L8 5Z" />
+                                                    </svg>
+                                                </div>
+                                            </a>
+                                        </div>
+                                <?php }
+                                } ?>
 
                             </div>
                             <div class="swiper-button-prev"></div>
@@ -1522,7 +1524,7 @@ if (!$is_archive && !empty($videos_list)) {
                     <?php if ($is_archive == 0) { ?>
                     </div>
                     <?php
-                    $gallery_grid = array_slice($gallery_ids, 1, 4);
+                        $gallery_grid = array_slice($gallery_ids, 1, 4);
                     ?>
                     <div class="listing-single-gallery-right">
                         <div class="gallery-grid active">
@@ -1538,9 +1540,9 @@ if (!$is_archive && !empty($videos_list)) {
                     </div>
                 </div><?php } ?>
 
-      <script>
+            <script>
                 jQuery(document).ready(function($) {
-                    
+
                     var $slider = $('#<?php echo $slider_id; ?>');
                     var $galleryWrapper = $slider.closest('.listing-single-gallery');
                     var mainGallerySwiper;
@@ -1566,45 +1568,51 @@ if (!$is_archive && !empty($videos_list)) {
                     // 3. Custom Tag Navigation (Video / Matterport / Images)
                     // SCOPED to this specific gallery wrapper
                     $galleryWrapper.find('.gallery-nav-tags').off('click', '.gallery-tag').on('click', '.gallery-tag', function(e) {
-                        
+
                         e.preventDefault();
                         e.stopPropagation();
 
                         var type = $(this).data('type');
-                        
+
                         // Handle Matterport Launch
                         if (type === 'matterport') {
                             var url = $(this).data('url');
-                            var fancyOpts = [{ src: url }];
-                            
+                            var fancyOpts = [{
+                                src: url
+                            }];
+
                             if (!url.match(/(youtube\.com|youtu\.be|vimeo\.com)/i)) {
                                 fancyOpts[0].type = 'iframe';
                             }
-                            
+
                             if (typeof Fancybox !== 'undefined') {
-                                Fancybox.close(); 
+                                Fancybox.close();
                                 Fancybox.show(fancyOpts, {
-                                    dragToClose: false, 
-                                    backdropClick: "close", 
+                                    dragToClose: false,
+                                    backdropClick: "close",
                                     Toolbar: {
-                                        display: { left: [], middle: [], right: ["close"] },
+                                        display: {
+                                            left: [],
+                                            middle: [],
+                                            right: ["close"]
+                                        },
                                     }
                                 });
                             }
-                            return; 
+                            return;
                         }
 
                         // Handle Slide Navigation (Video or Images)
                         // Use .attr to safely get the value and parse it as an Integer
                         var slideTarget = $(this).attr('data-trigger-slide');
-                        
+
                         if (typeof slideTarget !== 'undefined' && slideTarget !== false) {
                             $galleryWrapper.find('.gallery-tag').removeClass('active');
                             $(this).addClass('active');
 
                             // Bulletproof way to get the Swiper instance
                             var swiperInstance = $slider[0].swiper || mainGallerySwiper;
-                            
+
                             if (swiperInstance) {
                                 swiperInstance.slideTo(parseInt(slideTarget));
                             }
@@ -1624,15 +1632,15 @@ if (!$is_archive && !empty($videos_list)) {
                             },
                             // Update active tag class if user manually swipes to a video
                             on: {
-                                slideChange: function () {
+                                slideChange: function() {
                                     var activeIndex = this.activeIndex;
                                     var activeSlide = this.slides[activeIndex];
                                     var isVideoSlide = $(activeSlide).hasClass('video-item');
-                                    
+
                                     // Scope the class updates so it doesn't affect other sliders on the page
                                     $galleryWrapper.find('.gallery-tag').removeClass('active');
-                                    
-                                    if(isVideoSlide) {
+
+                                    if (isVideoSlide) {
                                         $galleryWrapper.find('.gallery-tag[data-trigger-slide="<?= $first_video_index ?>"]').addClass('active');
                                     } else {
                                         $galleryWrapper.find('.gallery-tag[data-trigger-slide="0"]').addClass('active');
@@ -1673,11 +1681,13 @@ if (!$is_archive && !empty($videos_list)) {
                     position: relative;
                     overflow: hidden;
                 }
+
                 .swiper-slide img {
                     width: 100%;
                     height: auto;
                     display: block;
                 }
+
                 .swiper-slide a,
                 .gallery-grid-item a,
                 .open-gallery {
@@ -1690,15 +1700,17 @@ if (!$is_archive && !empty($videos_list)) {
                     cursor: pointer;
                     transition: opacity 0.3s ease;
                 }
+
                 .gallery-nav-tags .gallery-tag:not(.active) {
                     opacity: 0.7;
                 }
-                
+
                 /* Video Thumbnail Styles */
                 .video-item {
                     position: relative;
                     background: #181C21;
                 }
+
                 .video-placeholder {
                     display: flex;
                     align-items: center;
@@ -1708,12 +1720,13 @@ if (!$is_archive && !empty($videos_list)) {
                     color: #fff;
                     font-size: 14px;
                 }
+
                 .video-item .play-icon {
                     position: absolute;
                     top: 50%;
                     left: 50%;
                     transform: translate(-50%, -50%);
-                    background: rgba(0,0,0,0.6);
+                    background: rgba(0, 0, 0, 0.6);
                     border-radius: 50%;
                     width: 60px;
                     height: 60px;
