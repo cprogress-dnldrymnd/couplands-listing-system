@@ -1625,7 +1625,6 @@ class Listing_System
                     background-color: rgba(0, 0, 0, 0.7) !important;
                     color: #fff !important;
                     border-radius: 50% !important;
-                    margin: 10px !important;
                 }
                 .f-button.is-close-btn:hover {
                     background-color: rgba(0, 0, 0, 0.9) !important;
