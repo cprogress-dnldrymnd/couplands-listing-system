@@ -1473,8 +1473,8 @@ class Listing_System
                                         if (preg_match('%(?:youtube(?:-nocookie)?\.com/(?:[^/]+/.+/|(?:v|e(?:mbed)?)/|.*[?&]v=)|youtu\.be/)([^"&?/\s]{11})%i', $vid_url, $match)) {
                                             $yt_id = $match[1];
                                         }
-                                        // Use hqdefault for better quality fallback
-                                        $thumb_url = $yt_id ? "https://img.youtube.com/vi/{$yt_id}/hqdefault.jpg" : ""; 
+                                        // Use maxresdefault for better quality fallback
+                                        $thumb_url = $yt_id ? "https://img.youtube.com/vi/{$yt_id}/maxresdefault.jpg" : ""; 
                                     ?>
                                         <div class="swiper-slide video-item">
                                             <a href="<?= esc_url($vid_url) ?>" data-fancybox="<?php echo $slider_id; ?>">
