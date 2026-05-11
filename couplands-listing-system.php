@@ -1468,6 +1468,12 @@ class Listing_System
 
                                 <?php
                                 if (!$is_archive && !empty($videos_list)) {
+                                    // Generate a fallback thumbnail for the Fancybox bottom strip
+                                    $placeholder_id = get_option('couplands_placeholder_image');
+                                    // Base64 encoded generic play button icon if no placeholder is set
+                                    $default_svg = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNTAiIGhlaWdodD0iMTUwIiB2aWV3Qm94PSIwIDAgMTUwIDE1MCI+PHJlY3Qgd2lkdGg9IjE1MCIgaGVpZ2h0PSIxNTAiIGZpbGw9IiMxODFDMjEiLz48cGF0aCBkPSJNNTUgNDV2NjBsNDUtMzB6IiBmaWxsPSIjZmZmZmZmIi8+PC9zdmc+';
+                                    $fallback_thumb = $placeholder_id ? wp_get_attachment_image_url($placeholder_id, 'thumbnail') : $default_svg;
+
                                     foreach ($videos_list as $vid_url) {
                                         $yt_id = '';
                                         $is_local = false;
@@ -1481,9 +1487,14 @@ class Listing_System
                                         }
 
                                         $thumb_url = $yt_id ? "https://img.youtube.com/vi/{$yt_id}/maxresdefault.jpg" : "";
+                                        $fancybox_thumb = $thumb_url ? $thumb_url : $fallback_thumb;
                                 ?>
                                         <div class="swiper-slide video-item" style="background: #000;">
-                                            <a href="<?= esc_url($vid_url) ?>" data-fancybox="<?php echo $slider_id; ?>" style="position: relative; display: block; height: 100%;">
+                                            <a href="<?= esc_url($vid_url) ?>"
+                                                data-fancybox="<?php echo $slider_id; ?>"
+                                                <?php echo $is_local ? 'data-type="video"' : ''; ?>
+                                                data-thumb="<?= esc_url($fancybox_thumb) ?>"
+                                                style="position: relative; display: block; height: 100%;">
 
                                                 <?php if ($thumb_url) { ?>
                                                     <img src="<?= esc_url($thumb_url) ?>" alt="Video Thumbnail" style="width:100%; height:100%; object-fit:cover; display:block; opacity:0.7;" />
