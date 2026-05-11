@@ -1410,25 +1410,23 @@ class Listing_System
                 $videos_raw = function_exists('get_field') ? get_field('videos') : '';
                 $videos_list = !empty($videos_raw) ? array_filter(array_map('trim', explode(',', $videos_raw))) : [];
                 $tour_360 = function_exists('get_field') ? get_field('tour_360') : '';
+                
+                // Calculate where the videos start in the slider
+                $first_video_index = count($gallery_ids);
                 ?>
                 <div class="listing-single-gallery">
                     <div class="listing-single-gallery-left">
 
                         <div class="tags gallery-nav-tags">
-                            <?php if (!empty($videos_list)) { 
-                                // If only 1 video, launch directly. If multiple, swap sidebar.
-                                if (count($videos_list) === 1) { ?>
-                                    <div class="gallery-tag" data-type="single-video" data-url="<?= esc_url($videos_list[0]); ?>">Video</div>
-                                <?php } else { ?>
-                                    <div class="gallery-tag" data-target="videos">Video</div>
-                                <?php } 
-                            } ?>
+                            <?php if (!empty($videos_list)) { ?>
+                                <div class="gallery-tag" data-trigger-slide="<?= $first_video_index; ?>">Video</div>
+                            <?php } ?>
 
                             <?php if (!empty($tour_360)) { ?>
                                 <div class="gallery-tag" data-type="matterport" data-url="<?= esc_url($tour_360); ?>">Matterport</div>
                             <?php } ?>
                             
-                            <div class="gallery-tag active" data-target="images"><?= count($gallery_ids) ?> images</div>
+                            <div class="gallery-tag active" data-trigger-slide="0"><?= count($gallery_ids) ?> images</div>
                         </div>
 
                     <?php } ?>
@@ -1451,6 +1449,7 @@ class Listing_System
                                 <a class="fake-button" href="<?= get_the_permalink($post_id) ?>"></a>
                             <?php } ?>
                             <div class="swiper-wrapper">
+                                
                                 <?php foreach ($gallery_ids as $gallery_id) { ?>
                                     <div class="swiper-slide">
                                         <?php if ($is_archive == 0) { ?>
@@ -1466,6 +1465,32 @@ class Listing_System
                                         <?php } ?>
                                     </div>
                                 <?php } ?>
+
+                                <?php 
+                                if (!$is_archive && !empty($videos_list)) {
+                                    foreach ($videos_list as $vid_url) { 
+                                        $yt_id = '';
+                                        if (preg_match('%(?:youtube(?:-nocookie)?\.com/(?:[^/]+/.+/|(?:v|e(?:mbed)?)/|.*[?&]v=)|youtu\.be/)([^"&?/\s]{11})%i', $vid_url, $match)) {
+                                            $yt_id = $match[1];
+                                        }
+                                        // Use hqdefault for better quality fallback
+                                        $thumb_url = $yt_id ? "https://img.youtube.com/vi/{$yt_id}/hqdefault.jpg" : ""; 
+                                    ?>
+                                        <div class="swiper-slide video-item">
+                                            <a href="<?= esc_url($vid_url) ?>" data-fancybox="<?php echo $slider_id; ?>">
+                                                <?php if ($thumb_url) { ?>
+                                                    <img src="<?= esc_url($thumb_url) ?>" alt="Video Thumbnail" style="width:100%; height:auto; display:block; opacity:0.8;" />
+                                                <?php } else { ?>
+                                                    <div class="video-placeholder">Video</div>
+                                                <?php } ?>
+                                                <div class="play-icon">
+                                                    <svg width="32" height="32" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg"><path d="M8 5V19L19 12L8 5Z"/></svg>
+                                                </div>
+                                            </a>
+                                        </div>
+                                    <?php }
+                                } ?>
+
                             </div>
                             <div class="swiper-button-prev"></div>
                             <div class="swiper-button-next"></div>
@@ -1488,7 +1513,7 @@ class Listing_System
                     $gallery_grid = array_slice($gallery_ids, 1, 4);
                     ?>
                     <div class="listing-single-gallery-right">
-                        <div class="gallery-grid gallery-target-images active">
+                        <div class="gallery-grid active">
                             <?php foreach ($gallery_grid as $index => $gallery_id) { ?>
                                 <div class="gallery-grid-item">
                                     <a href="<?= wp_get_attachment_image_url($gallery_id, 'full') ?>"
@@ -1498,36 +1523,13 @@ class Listing_System
                                 </div>
                             <?php } ?>
                         </div>
-                        
-                        <?php if (count($videos_list) > 1) { ?>
-                            <div class="gallery-grid gallery-target-videos" style="display: none;">
-                                <?php foreach ($videos_list as $vid_url) { 
-                                    $yt_id = '';
-                                    if (preg_match('%(?:youtube(?:-nocookie)?\.com/(?:[^/]+/.+/|(?:v|e(?:mbed)?)/|.*[?&]v=)|youtu\.be/)([^"&?/\s]{11})%i', $vid_url, $match)) {
-                                        $yt_id = $match[1];
-                                    }
-                                    $thumb_url = $yt_id ? "https://img.youtube.com/vi/{$yt_id}/mqdefault.jpg" : ""; 
-                                ?>
-                                    <div class="gallery-grid-item video-item">
-                                        <a href="<?= esc_url($vid_url) ?>" data-fancybox="listing-videos">
-                                            <?php if ($thumb_url) { ?>
-                                                <img src="<?= esc_url($thumb_url) ?>" alt="Video Thumbnail" />
-                                            <?php } else { ?>
-                                                <div class="video-placeholder">Video</div>
-                                            <?php } ?>
-                                            <div class="play-icon">
-                                                <svg width="24" height="24" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg"><path d="M8 5V19L19 12L8 5Z"/></svg>
-                                            </div>
-                                        </a>
-                                    </div>
-                                <?php } ?>
-                            </div>
-                        <?php } ?>
                     </div>
                 </div><?php } ?>
 
-         <script>
+            <script>
                 jQuery(document).ready(function($) {
+                    
+                    var mainGallerySwiper;
 
                     // 1. Initialize Fancybox
                     if (typeof Fancybox !== 'undefined') {
@@ -1540,7 +1542,6 @@ class Listing_System
                     }
 
                     // 2. Handle Custom Gallery Triggers (Prevents Fancybox Duplication)
-                    // Added .off() to prevent duplicate event bindings
                     $('#<?php echo $slider_id; ?>').closest('.listing-single-gallery').off('click', '[data-trigger-gallery]').on('click', '[data-trigger-gallery]', function(e) {
                         e.preventDefault();
                         var targetIndex = $(this).data('trigger-gallery');
@@ -1548,7 +1549,6 @@ class Listing_System
                     });
 
                     // 3. Custom Tag Navigation (Video / Matterport / Images)
-                    // Added .off() here as well to stop multiple Fancyboxes from stacking
                     $('.gallery-nav-tags').off('click', '.gallery-tag').on('click', '.gallery-tag', function(e) {
                         
                         // Prevent click bubbling causing issues
@@ -1557,21 +1557,17 @@ class Listing_System
 
                         var type = $(this).data('type');
                         
-                        // Handle Single Video or Matterport (Direct Fancybox Trigger)
-                        if (type === 'matterport' || type === 'single-video') {
+                        // Handle Matterport Launch
+                        if (type === 'matterport') {
                             var url = $(this).data('url');
                             var fancyOpts = [{ src: url }];
                             
-                            if (type === 'matterport') {
-                                if (!url.match(/(youtube\.com|youtu\.be|vimeo\.com)/i)) {
-                                    fancyOpts[0].type = 'iframe';
-                                }
+                            if (!url.match(/(youtube\.com|youtu\.be|vimeo\.com)/i)) {
+                                fancyOpts[0].type = 'iframe';
                             }
                             
                             if (typeof Fancybox !== 'undefined') {
-                                // Force close any existing hidden instances first
                                 Fancybox.close(); 
-                                
                                 Fancybox.show(fancyOpts, {
                                     dragToClose: false, 
                                     backdropClick: "close", 
@@ -1587,21 +1583,21 @@ class Listing_System
                             return; 
                         }
 
-                        // Handle Multi-Video vs Images Panel Swapping
-                        var target = $(this).data('target');
-                        if (target) {
-                            $('.gallery-nav-tags .gallery-tag[data-target]').removeClass('active');
+                        // Handle Slide Navigation (Video or Images)
+                        var slideTarget = $(this).data('trigger-slide');
+                        if (typeof slideTarget !== 'undefined') {
+                            $('.gallery-nav-tags .gallery-tag').removeClass('active');
                             $(this).addClass('active');
 
-                            // Switch right-hand grids
-                            $('.listing-single-gallery-right .gallery-grid').hide().removeClass('active');
-                            $('.listing-single-gallery-right .gallery-target-' + target).fadeIn().addClass('active');
+                            if (mainGallerySwiper) {
+                                mainGallerySwiper.slideTo(slideTarget);
+                            }
                         }
                     });
 
                     // 4. Initialize Swiper
                     if (typeof Swiper !== 'undefined') {
-                        new Swiper('#<?php echo $slider_id; ?>', {
+                        mainGallerySwiper = new Swiper('#<?php echo $slider_id; ?>', {
                             loop: false,
                             slidesPerView: 1,
                             spaceBetween: 0,
@@ -1610,6 +1606,19 @@ class Listing_System
                                 nextEl: '#<?php echo $slider_id; ?> .swiper-button-next',
                                 prevEl: '#<?php echo $slider_id; ?> .swiper-button-prev',
                             },
+                            // Update active tag class if user manually swipes to a video
+                            on: {
+                                slideChange: function () {
+                                    var isVideoSlide = $(this.slides[this.activeIndex]).hasClass('video-item');
+                                    $('.gallery-nav-tags .gallery-tag').removeClass('active');
+                                    
+                                    if(isVideoSlide) {
+                                        $('.gallery-nav-tags .gallery-tag[data-trigger-slide="<?= $first_video_index ?>"]').addClass('active');
+                                    } else {
+                                        $('.gallery-nav-tags .gallery-tag[data-trigger-slide="0"]').addClass('active');
+                                    }
+                                }
+                            }
                         });
                     }
                 });
@@ -1617,17 +1626,24 @@ class Listing_System
 
             <style>
                 /* FIX FOR FANCYBOX CLOSE BUTTON OVERLAPPING/CLICKABILITY */
-                .fancybox__toolbar {
+                .fancybox__container .f-button.is-close-btn {
+                    position: fixed !important;
+                    top: 20px !important;
+                    right: 20px !important;
                     z-index: 999999 !important;
-                    pointer-events: auto !important;
-                }
-                .f-button.is-close-btn {
-                    background-color: rgba(0, 0, 0, 0.7) !important;
+                    background-color: rgba(0, 0, 0, 0.8) !important;
                     color: #fff !important;
                     border-radius: 50% !important;
+                    width: 44px !important;
+                    height: 44px !important;
+                    display: flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                    margin: 0 !important;
                 }
-                .f-button.is-close-btn:hover {
-                    background-color: rgba(0, 0, 0, 0.9) !important;
+
+                .fancybox__container .f-button.is-close-btn:hover {
+                    background-color: #000 !important;
                 }
 
                 /* YOUR CUSTOM STYLES */
@@ -1659,14 +1675,9 @@ class Listing_System
                 }
                 
                 /* Video Thumbnail Styles */
-                .gallery-target-videos {
-                    display: none;
-                }
-                .gallery-target-videos[style*="display: block"] {
-                    display: grid !important;
-                }
                 .video-item {
                     position: relative;
+                    background: #181C21;
                 }
                 .video-placeholder {
                     display: flex;
@@ -1684,8 +1695,8 @@ class Listing_System
                     transform: translate(-50%, -50%);
                     background: rgba(0,0,0,0.6);
                     border-radius: 50%;
-                    width: 40px;
-                    height: 40px;
+                    width: 60px;
+                    height: 60px;
                     display: flex;
                     align-items: center;
                     justify-content: center;
