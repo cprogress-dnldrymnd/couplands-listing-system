@@ -1631,12 +1631,7 @@ class Listing_System
                 .video-item {
                     position: relative;
                 }
-                .video-item img {
-                    width: 100%;
-                    height: 100%;
-                    object-fit: cover;
-                    opacity: 0.8;
-                }
+              
                 .video-placeholder {
                     display: flex;
                     align-items: center;
