@@ -1502,7 +1502,6 @@ class Listing_System
                         <?php if (count($videos_list) > 1) { ?>
                             <div class="gallery-grid gallery-target-videos" style="display: none;">
                                 <?php foreach ($videos_list as $vid_url) { 
-                                    // Basic extraction for YouTube Thumbnails
                                     $yt_id = '';
                                     if (preg_match('%(?:youtube(?:-nocookie)?\.com/(?:[^/]+/.+/|(?:v|e(?:mbed)?)/|.*[?&]v=)|youtu\.be/)([^"&?/\s]{11})%i', $vid_url, $match)) {
                                         $yt_id = $match[1];
@@ -1512,7 +1511,7 @@ class Listing_System
                                     <div class="gallery-grid-item video-item">
                                         <a href="<?= esc_url($vid_url) ?>" data-fancybox="listing-videos">
                                             <?php if ($thumb_url) { ?>
-                                                <img src="<?= esc_url($thumb_url) ?>" alt="Video Thumbnail" style="width:100%; height:100%; object-fit:cover; opacity:0.8;" />
+                                                <img src="<?= esc_url($thumb_url) ?>" alt="Video Thumbnail" />
                                             <?php } else { ?>
                                                 <div class="video-placeholder">Video</div>
                                             <?php } ?>
@@ -1535,7 +1534,8 @@ class Listing_System
                         Fancybox.bind("[data-fancybox]", {
                             Thumbs: {
                                 type: "modern"
-                            }
+                            },
+                            dragToClose: false // Helps prevent accidental swipes closing images
                         });
                     }
 
@@ -1543,12 +1543,16 @@ class Listing_System
                     $('#<?php echo $slider_id; ?>').closest('.listing-single-gallery').find('[data-trigger-gallery]').on('click', function(e) {
                         e.preventDefault();
                         var targetIndex = $(this).data('trigger-gallery');
-                        // Proxy the click to the hidden anchor inside the corresponding Swiper slide
                         $('#<?php echo $slider_id; ?> .swiper-slide').eq(targetIndex).find('a')[0].click();
                     });
 
                     // 3. Custom Tag Navigation (Video / Matterport / Images)
-                    $('.gallery-nav-tags .gallery-tag').on('click', function() {
+                    $('.gallery-nav-tags .gallery-tag').on('click', function(e) {
+                        
+                        // Prevent click bubbling causing issues
+                        e.preventDefault();
+                        e.stopPropagation();
+
                         var type = $(this).data('type');
                         
                         // Handle Single Video or Matterport (Direct Fancybox Trigger)
@@ -1556,8 +1560,6 @@ class Listing_System
                             var url = $(this).data('url');
                             var fancyOpts = [{ src: url }];
                             
-                            // Let Fancybox natively handle YouTube/Vimeo links.
-                            // Only force iframe if it's a true Matterport link (or other external 3D tour).
                             if (type === 'matterport') {
                                 if (!url.match(/(youtube\.com|youtu\.be|vimeo\.com)/i)) {
                                     fancyOpts[0].type = 'iframe';
@@ -1565,7 +1567,18 @@ class Listing_System
                             }
                             
                             if (typeof Fancybox !== 'undefined') {
-                                Fancybox.show(fancyOpts);
+                                // Added explicit closing behaviors to prevent iframe capture lock
+                                Fancybox.show(fancyOpts, {
+                                    dragToClose: false, 
+                                    backdropClick: "close", 
+                                    Toolbar: {
+                                        display: {
+                                            left: [],
+                                            middle: [],
+                                            right: ["close"],
+                                        },
+                                    }
+                                });
                             }
                             return; 
                         }
@@ -1599,19 +1612,33 @@ class Listing_System
             </script>
 
             <style>
+                /* FIX FOR FANCYBOX CLOSE BUTTON OVERLAPPING/CLICKABILITY */
+                .fancybox__toolbar {
+                    z-index: 999999 !important;
+                    pointer-events: auto !important;
+                }
+                .f-button.is-close-btn {
+                    background-color: rgba(0, 0, 0, 0.7) !important;
+                    color: #fff !important;
+                    border-radius: 50% !important;
+                    margin: 10px !important;
+                }
+                .f-button.is-close-btn:hover {
+                    background-color: rgba(0, 0, 0, 0.9) !important;
+                }
+
+                /* YOUR CUSTOM STYLES */
                 .swiper-gallery {
                     width: 100%;
                     height: auto;
                     position: relative;
                     overflow: hidden;
                 }
-
                 .swiper-slide img {
                     width: 100%;
                     height: auto;
                     display: block;
                 }
-
                 .swiper-slide a,
                 .gallery-grid-item a,
                 .open-gallery {
@@ -1638,7 +1665,6 @@ class Listing_System
                 .video-item {
                     position: relative;
                 }
-              
                 .video-placeholder {
                     display: flex;
                     align-items: center;
@@ -1647,7 +1673,6 @@ class Listing_System
                     width: 100%;
                     color: #fff;
                     font-size: 14px;
-                    background: #181C21;
                 }
                 .video-item .play-icon {
                     position: absolute;
