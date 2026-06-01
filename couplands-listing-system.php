@@ -3,7 +3,7 @@
 /**
  * Plugin Name: Couplands Listing System
  * Description: Advanced filtering system for Caravans, Motorhomes, and Products with AJAX support, CSV Importer, Listing Gallery, and Shortcodes.
- * Version: 2.8.6
+ * Version: 2.8.7
  * Author: Digitally Disruptive - Donald Raymundo
  * Author URI: https://digitallydisruptive.co.uk/
  * Text Domain: couplands-listing
@@ -679,6 +679,7 @@ class Listing_System
     ?>
         <button id="cls-mobile-filter-trigger" class="cls-mobile-filter-btn" type="button" aria-label="Open Filters">
             Filters
+            <!-- Standard filter icon mirroring the provided design constraint -->
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M10 18H14V16H10V18ZM3 6V8H21V6H3ZM6 13H18V11H6V13Z" fill="currentColor" />
             </svg>
@@ -1435,9 +1436,11 @@ class Listing_System
         $gallery_ids = array_unique($gallery_ids);
         $gallery_ids = array_filter($gallery_ids);
 
-        // Inject Global Placeholder if no media exists
+        // Inject Post Type Specific Placeholder if no media exists
         if (empty($gallery_ids)) {
-            $placeholder_id = get_option('couplands_placeholder_image');
+            $current_post_type = get_post_type($post_id);
+            $placeholder_id = get_option('couplands_placeholder_image_' . $current_post_type);
+
             if ($placeholder_id) {
                 $gallery_ids[] = $placeholder_id;
             } else {
@@ -2084,8 +2087,10 @@ class Listing_System
         // NEW: Model Grid Template Settings
         register_setting('couplands_general_settings', 'couplands_model_grid_item_template');
 
-        // NEW: Fallback Placeholder Image
-        register_setting('couplands_general_settings', 'couplands_placeholder_image');
+        // NEW: Fallback Placeholder Images per Post Type
+        register_setting('couplands_general_settings', 'couplands_placeholder_image_caravan');
+        register_setting('couplands_general_settings', 'couplands_placeholder_image_motorhome');
+        register_setting('couplands_general_settings', 'couplands_placeholder_image_campervan');
 
         // --- ADDED: Meta Fields Settings ---
         register_setting('couplands_meta_fields_group', 'couplands_meta_fields_config');
@@ -2391,60 +2396,82 @@ class Listing_System
                     <p class="description">Select the Elementor Template used for individual items in the model grid.</p>
                 </td>
             </tr>
-            <tr>
-                <th scope="row">Fallback Placeholder Image</th>
-                <td>
-                    <?php
-                    $placeholder_id = get_option('couplands_placeholder_image');
-                    $placeholder_url = $placeholder_id ? wp_get_attachment_image_url($placeholder_id, 'medium') : '';
-                    ?>
-                    <div class="couplands-placeholder-preview" style="margin-bottom:10px;">
-                        <?php if ($placeholder_url) : ?>
-                            <img src="<?php echo esc_url($placeholder_url); ?>" style="max-width:200px; height:auto; border:1px solid #ccc; padding:3px; background:#fff;" />
-                        <?php endif; ?>
-                    </div>
-                    <input type="hidden" name="couplands_placeholder_image" id="couplands_placeholder_image" value="<?php echo esc_attr($placeholder_id); ?>" />
-                    <button type="button" class="button" id="couplands_upload_placeholder">Select Placeholder Image</button>
-                    <button type="button" class="button button-link-delete" id="couplands_remove_placeholder" style="<?php echo !$placeholder_id ? 'display:none;' : ''; ?>">Remove</button>
-
-                    <p class="description">This image will automatically display in the gallery and grid shortcodes if a listing has no images attached.</p>
-
-                    <script>
-                        jQuery(document).ready(function($) {
-                            var frame;
-                            $('#couplands_upload_placeholder').on('click', function(e) {
-                                e.preventDefault();
-                                if (frame) {
-                                    frame.open();
-                                    return;
-                                }
-                                frame = wp.media({
-                                    title: 'Select Placeholder Image',
-                                    button: {
-                                        text: 'Use this image'
-                                    },
-                                    multiple: false
-                                });
-                                frame.on('select', function() {
-                                    var attachment = frame.state().get('selection').first().toJSON();
-                                    $('#couplands_placeholder_image').val(attachment.id);
-                                    $('.couplands-placeholder-preview').html('<img src="' + (attachment.sizes.medium ? attachment.sizes.medium.url : attachment.url) + '" style="max-width:200px; height:auto; border:1px solid #ccc; padding:3px; background:#fff;" />');
-                                    $('#couplands_remove_placeholder').show();
-                                });
-                                frame.open();
-                            });
-
-                            $('#couplands_remove_placeholder').on('click', function(e) {
-                                e.preventDefault();
-                                $('#couplands_placeholder_image').val('');
-                                $('.couplands-placeholder-preview').empty();
-                                $(this).hide();
-                            });
-                        });
-                    </script>
-                </td>
-            </tr>
         </table>
+
+        <hr>
+
+        <h3>Fallback Placeholder Images</h3>
+        <p>These images will automatically display in the gallery and grid shortcodes if a listing has no images attached.</p>
+        <table class="form-table">
+            <?php 
+            $post_types_placeholders = [
+                'caravan'   => 'Caravan',
+                'motorhome' => 'Motorhome',
+                'campervan' => 'Campervan'
+            ];
+            
+            foreach ($post_types_placeholders as $pt_slug => $pt_label) : 
+                $opt_name = 'couplands_placeholder_image_' . $pt_slug;
+                $placeholder_id = get_option($opt_name);
+                $placeholder_url = $placeholder_id ? wp_get_attachment_image_url($placeholder_id, 'medium') : '';
+            ?>
+                <tr>
+                    <th scope="row"><?php echo esc_html($pt_label); ?> Placeholder</th>
+                    <td>
+                        <div class="couplands-placeholder-preview-<?php echo esc_attr($pt_slug); ?>" style="margin-bottom:10px;">
+                            <?php if ($placeholder_url) : ?>
+                                <img src="<?php echo esc_url($placeholder_url); ?>" style="max-width:200px; height:auto; border:1px solid #ccc; padding:3px; background:#fff;" />
+                            <?php endif; ?>
+                        </div>
+                        <input type="hidden" name="<?php echo esc_attr($opt_name); ?>" id="<?php echo esc_attr($opt_name); ?>" value="<?php echo esc_attr($placeholder_id); ?>" />
+                        <button type="button" class="button couplands_upload_placeholder" data-target="<?php echo esc_attr($pt_slug); ?>">Select <?php echo esc_html($pt_label); ?> Image</button>
+                        <button type="button" class="button button-link-delete couplands_remove_placeholder" data-target="<?php echo esc_attr($pt_slug); ?>" style="<?php echo !$placeholder_id ? 'display:none;' : ''; ?>">Remove</button>
+                    </td>
+                </tr>
+            <?php endforeach; ?>
+        </table>
+
+        <script>
+            jQuery(document).ready(function($) {
+                var frame;
+                var currentTarget = '';
+
+                $('.couplands_upload_placeholder').on('click', function(e) {
+                    e.preventDefault();
+                    currentTarget = $(this).data('target');
+
+                    if (frame) {
+                        frame.open();
+                        return;
+                    }
+
+                    frame = wp.media({
+                        title: 'Select Placeholder Image',
+                        button: {
+                            text: 'Use this image'
+                        },
+                        multiple: false
+                    });
+
+                    frame.on('select', function() {
+                        var attachment = frame.state().get('selection').first().toJSON();
+                        $('#couplands_placeholder_image_' + currentTarget).val(attachment.id);
+                        $('.couplands-placeholder-preview-' + currentTarget).html('<img src="' + (attachment.sizes.medium ? attachment.sizes.medium.url : attachment.url) + '" style="max-width:200px; height:auto; border:1px solid #ccc; padding:3px; background:#fff;" />');
+                        $('.couplands_remove_placeholder[data-target="' + currentTarget + '"]').show();
+                    });
+
+                    frame.open();
+                });
+
+                $('.couplands_remove_placeholder').on('click', function(e) {
+                    e.preventDefault();
+                    var target = $(this).data('target');
+                    $('#couplands_placeholder_image_' + target).val('');
+                    $('.couplands-placeholder-preview-' + target).empty();
+                    $(this).hide();
+                });
+            });
+        </script>
     <?php
     }
 
@@ -3103,6 +3130,7 @@ class Listing_System
     ?>
         <div class="caravan-filter-container cls-filter-modal-wrapper" id="cls-filter-modal-wrapper">
             <div class="caravan-sidebar cls-filter-modal-content">
+                <!-- Injected Modal Close Button (CSS handles visibility) -->
                 <div class="modal--header">
                     <h4>Filters</h4>
                     <button id="cls-filter-modal-close" class="cls-filter-modal-close cls-filter-modal-close-trigger" type="button" aria-label="Close Filters">Close <span>×</span></button>
