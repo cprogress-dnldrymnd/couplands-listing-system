@@ -3716,7 +3716,7 @@ class Listing_System
                 <div class="apply-filter-holder cls-filter-modal-close-trigger">
                     <span>Apply Filters & Search</span>
                 </div>
-              
+
                 <div class="reset-holder-box reset-filter">
                     <a href="#">Reset</a>
                 </div>
@@ -4224,6 +4224,12 @@ class Listing_System
 
                 // --- NEW: Sort Dropdown Change Listener ---
                 $(document).on('change', '.listing-sort-dropdown', function() {
+                    // Get the value of the specific dropdown the user just interacted with
+                    var selectedSort = $(this).val();
+
+                    // Sync this value across ALL duplicated sort dropdowns (desktop/mobile)
+                    $('.listing-sort-dropdown').val(selectedSort);
+
                     currentPage = 1; // Reset page
                     fetchCaravans(false);
                 });
@@ -4309,7 +4315,9 @@ class Listing_System
 
                     // --- NEW: Append Sort Value ---
                     if ($('.listing-sort-dropdown').length) {
-                        formData.append('sort_by', $('.listing-sort-dropdown').val());
+                        // Explicitly target the first one, since our change listener above 
+                        // ensures all duplicated dropdowns now share the exact same value.
+                        formData.append('sort_by', $('.listing-sort-dropdown').first().val());
                     }
 
                     $.ajax({
