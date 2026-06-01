@@ -3966,7 +3966,6 @@ class Listing_System
             'total_posts' => $total_posts // Pass the total aggregate count to the frontend
         ]);
     }
-    }
 
     /**
      * 5. HTML Generator
