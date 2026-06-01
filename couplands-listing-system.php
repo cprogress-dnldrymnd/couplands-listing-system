@@ -596,7 +596,6 @@ class Listing_System
                     grid-template-columns: repeat(2, 1fr);
                 }
             }
-
         </style>
     <?php
         return ob_get_clean();
@@ -3717,14 +3716,7 @@ class Listing_System
                 <div class="apply-filter-holder cls-filter-modal-close-trigger">
                     <span>Apply Filters & Search</span>
                 </div>
-                <div class="showing">
-                    <span class="elementor-heading-title elementor-size-default">
-                        Show
-                        <span class="post-count" style="font-weight: 600">0</span> <span class="title-make"></span>
-                        <span class="title-listing">
-                        </span>
-                    </span>
-                </div>
+              
                 <div class="reset-holder-box reset-filter">
                     <a href="#">Reset</a>
                 </div>
@@ -3948,12 +3940,12 @@ class Listing_System
         // --- Run Actual Paginated Query to get Max Pages & Total Posts ---
         $query = new WP_Query($args);
         $max_pages = $query->max_num_pages;
-        
+
         /**
          * Retrieve the total number of posts found matching the current query criteria
          * prior to pagination limits being applied.
          */
-        $total_posts = $query->found_posts; 
+        $total_posts = $query->found_posts;
         wp_reset_postdata();
 
         // --- Get HTML ---
