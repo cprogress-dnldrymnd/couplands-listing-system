@@ -1787,11 +1787,10 @@ class Listing_System
         ?>
         <div class="listing-sorting-container">
             <select class="listing-sort-dropdown" name="sort_by">
-                <option value="">Latest Published (Default)</option>
+                <option value="">Price (Low to High) - Default</option>
+                <option value="price_desc" <?php selected($selected_sort, 'price_desc'); ?>>Price (High to Low)</option>
                 <option value="title_asc" <?php selected($selected_sort, 'title_asc'); ?>>Title (A-Z)</option>
                 <option value="title_desc" <?php selected($selected_sort, 'title_desc'); ?>>Title (Z-A)</option>
-                <option value="price_asc" <?php selected($selected_sort, 'price_asc'); ?>>Price (Low to High)</option>
-                <option value="price_desc" <?php selected($selected_sort, 'price_desc'); ?>>Price (High to Low)</option>
             </select>
         </div>
 
@@ -3773,7 +3772,7 @@ class Listing_System
         }
 
         // --- NEW: Handle Sorting ---
-        if (isset($_POST['sort_by']) && !empty($_POST['sort_by'])) {
+       if (isset($_POST['sort_by']) && !empty($_POST['sort_by'])) {
             $sort_by = sanitize_text_field($_POST['sort_by']);
 
             switch ($sort_by) {
@@ -3785,20 +3784,9 @@ class Listing_System
                     $args['orderby'] = 'title';
                     $args['order'] = 'DESC';
                     break;
-                case 'price_asc':
-                    $args['order'] = 'ASC';
-                    $args['orderby'] = 'meta_value_num';
-                    // Determine which price meta key to use
-                    if ($post_type === 'product') {
-                        $args['meta_key'] = '_price'; // WooCommerce price
-                    } else {
-                        $args['meta_key'] = 'price'; // Custom vehicle price
-                    }
-                    break;
                 case 'price_desc':
                     $args['order'] = 'DESC';
                     $args['orderby'] = 'meta_value_num';
-                    // Determine which price meta key to use
                     if ($post_type === 'product') {
                         $args['meta_key'] = '_price'; // WooCommerce price
                     } else {
@@ -3806,14 +3794,25 @@ class Listing_System
                     }
                     break;
                 default:
-                    $args['orderby'] = 'date';
-                    $args['order']   = 'DESC';
+                    // Price (Low to High) fallback for unknown values
+                    $args['order'] = 'ASC';
+                    $args['orderby'] = 'meta_value_num';
+                    if ($post_type === 'product') {
+                        $args['meta_key'] = '_price'; 
+                    } else {
+                        $args['meta_key'] = 'price'; 
+                    }
                     break;
             }
         } else {
-            // Explicitly force Latest Published First by default
-            $args['orderby'] = 'date';
-            $args['order']   = 'DESC';
+            // Explicitly force Price (Low to High) by default when no sort_by is passed
+            $args['order'] = 'ASC';
+            $args['orderby'] = 'meta_value_num';
+            if ($post_type === 'product') {
+                $args['meta_key'] = '_price'; // WooCommerce price
+            } else {
+                $args['meta_key'] = 'price'; // Custom vehicle price
+            }
         }
         // --- Build Query Dynamically based on Config ---
         foreach ($config as $filter) {
