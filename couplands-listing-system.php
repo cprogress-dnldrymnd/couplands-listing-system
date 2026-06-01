@@ -3950,18 +3950,25 @@ class Listing_System
             }
         }
 
-        // --- Run Actual Paginated Query to get Max Pages ---
+        // --- Run Actual Paginated Query to get Max Pages & Total Posts ---
         $query = new WP_Query($args);
         $max_pages = $query->max_num_pages;
+
+        /**
+         * Retrieve the total number of posts found matching the current query criteria
+         * prior to pagination limits being applied.
+         */
+        $total_posts = $query->found_posts;
         wp_reset_postdata();
 
         // --- Get HTML ---
         $html = $this->get_caravan_listing_html($args);
 
         wp_send_json_success([
-            'html'      => $html,
-            'facets'    => $available,
-            'max_pages' => $max_pages // NEW: Return max pages for JS logic
+            'html'        => $html,
+            'facets'      => $available,
+            'max_pages'   => $max_pages, // Return max pages for JS logic
+            'total_posts' => $total_posts // Pass the total aggregate count to the frontend
         ]);
     }
 
@@ -4334,7 +4341,19 @@ class Listing_System
                                     $resultContainer.html(response.data.html);
                                 }
 
+                                /**
+                                 * Dynamically calculate and update the current visible items count.
+                                 * Relies on Elementor's native '.e-loop-item' class.
+                                 */
                                 $('.post-count').text($('#my-loop-grid-container .e-loop-item').length);
+
+                                /**
+                                 * Inject the absolute total aggregate count of available posts
+                                 * retrieved from the WP_Query backend response.
+                                 */
+                                if (response.data.total_posts !== undefined) {
+                                    $('.post-count-total').text(response.data.total_posts);
+                                }
 
                                 // Only update facets if we are on page 1 (re-filtering)
                                 // Facets are returned empty/partial on paged > 1 requests to save processing
@@ -4342,7 +4361,7 @@ class Listing_System
                                     updateFilters(response.data.facets);
                                 }
 
-                                // NEW: Update Max Pages and Button Visibility
+                                // Update Max Pages and Button Visibility
                                 if (response.data.max_pages !== undefined) {
                                     maxPages = response.data.max_pages;
                                 }
@@ -4357,9 +4376,6 @@ class Listing_System
                             }
                             $resultContainer.removeClass('caravan-loader');
                         },
-                        error: function() {
-                            $resultContainer.removeClass('caravan-loader');
-                        }
                     });
                 }
 
