@@ -212,8 +212,56 @@ class Listing_System
 
         // --- ADMIN: Register Settings ---
         add_action('admin_init', array($this, 'register_plugin_settings'));
+
+        $cpt_columns = ['caravan', 'motorhome', 'campervan'];
+        foreach ($cpt_columns as $cpt) {
+            add_filter("manage_{$cpt}_posts_columns", array($this, 'add_image_count_column'));
+            add_action("manage_{$cpt}_posts_custom_column", array($this, 'render_image_count_column'), 10, 2);
+        }
+    }
+    /**
+     * Add "Number of Images" Column to Admin Lists
+     */
+    public function add_image_count_column($columns)
+    {
+        $new_columns = [];
+        foreach ($columns as $key => $title) {
+            $new_columns[$key] = $title;
+            // Insert the new column right after the Title column
+            if ($key === 'title') {
+                $new_columns['image_count'] = 'Images';
+            }
+        }
+        return $new_columns;
     }
 
+    /**
+     * Render the "Number of Images" Column Data
+     */
+    public function render_image_count_column($column, $post_id)
+    {
+        if ($column === 'image_count') {
+            $gallery_ids_raw = get_post_meta($post_id, '_listing_gallery_ids', true);
+            $count = 0;
+
+            // Count the gallery images
+            if (!empty($gallery_ids_raw)) {
+                $ids = array_filter(explode(',', $gallery_ids_raw));
+                $count = count($ids);
+            }
+
+            // Check if a featured image exists (since frontend includes it in the slider)
+            $featured = get_post_thumbnail_id($post_id) ? 1 : 0;
+            $total = $count + $featured;
+
+            if ($total > 0) {
+                echo '<span class="dashicons dashicons-format-gallery" style="color: #2271b1; margin-right: 4px; vertical-align: middle;"></span>';
+                echo '<strong>' . intval($total) . '</strong>';
+            } else {
+                echo '<span style="color: #d63638; font-weight: 500;">0</span>';
+            }
+        }
+    }
 
 
     /**
@@ -3772,7 +3820,7 @@ class Listing_System
         }
 
         // --- NEW: Handle Sorting ---
-       if (isset($_POST['sort_by']) && !empty($_POST['sort_by'])) {
+        if (isset($_POST['sort_by']) && !empty($_POST['sort_by'])) {
             $sort_by = sanitize_text_field($_POST['sort_by']);
 
             switch ($sort_by) {
@@ -3798,9 +3846,9 @@ class Listing_System
                     $args['order'] = 'ASC';
                     $args['orderby'] = 'meta_value_num';
                     if ($post_type === 'product') {
-                        $args['meta_key'] = '_price'; 
+                        $args['meta_key'] = '_price';
                     } else {
-                        $args['meta_key'] = 'price'; 
+                        $args['meta_key'] = 'price';
                     }
                     break;
             }
