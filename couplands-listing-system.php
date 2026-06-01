@@ -1787,7 +1787,7 @@ class Listing_System
         ?>
         <div class="listing-sorting-container">
             <select class="listing-sort-dropdown" name="sort_by">
-                <option value="">Default Sorting</option>
+                <option value="">Latest Published (Default)</option>
                 <option value="title_asc" <?php selected($selected_sort, 'title_asc'); ?>>Title (A-Z)</option>
                 <option value="title_desc" <?php selected($selected_sort, 'title_desc'); ?>>Title (Z-A)</option>
                 <option value="price_asc" <?php selected($selected_sort, 'price_asc'); ?>>Price (Low to High)</option>
@@ -3805,9 +3805,16 @@ class Listing_System
                         $args['meta_key'] = 'price'; // Custom vehicle price
                     }
                     break;
+                default:
+                    $args['orderby'] = 'date';
+                    $args['order']   = 'DESC';
+                    break;
             }
+        } else {
+            // Explicitly force Latest Published First by default
+            $args['orderby'] = 'date';
+            $args['order']   = 'DESC';
         }
-
         // --- Build Query Dynamically based on Config ---
         foreach ($config as $filter) {
             $slug = $filter['slug'];
