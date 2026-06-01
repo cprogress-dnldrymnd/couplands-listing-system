@@ -20,11 +20,17 @@ if (!defined('ABSPATH')) {
  */
 class Listing_Registrar
 {
+    /**
+     * Initialize post types and taxonomies
+     */
     public function init()
     {
         add_action('init', array($this, 'register_data'));
     }
 
+    /**
+     * Trigger registration methods
+     */
     public function register_data()
     {
         $this->register_post_types();
@@ -32,6 +38,9 @@ class Listing_Registrar
         $this->insert_default_terms();
     }
 
+    /**
+     * Register required custom post types for listings
+     */
     private function register_post_types()
     {
         $types = ['caravan', 'motorhome', 'campervan'];
@@ -70,6 +79,9 @@ class Listing_Registrar
         }
     }
 
+    /**
+     * Register required custom taxonomies for listings
+     */
     private function register_taxonomies()
     {
         // Register Listing Make & Model
@@ -143,7 +155,9 @@ class Listing_Registrar
 
 class Listing_System
 {
-
+    /**
+     * Initialize listing system processes, hooks, and shortcodes
+     */
     public function __construct()
     {
         // Initialize Registration
@@ -184,7 +198,7 @@ class Listing_System
         // --- NEW: Child Page Template Override ---
         add_filter('template_include', array($this, 'load_first_level_child_template'));
 
-        // --- Admin actions (Menu & Importer) ---
+        // --- Admin actions (Menu) ---
         // Priority 99 ensures this runs AFTER post types are registered so we can move them
         add_action('admin_menu', array($this, 'register_admin_page'), 99);
 
@@ -193,22 +207,11 @@ class Listing_System
         add_filter('submenu_file', array($this, 'highlight_submenu_item'));
         add_filter('admin_head', array($this, 'fix_parent_css_highlight')); // Styling fix
 
-        // --- NEW: AJAX Import Hooks ---
-        add_action('wp_ajax_couplands_import_upload', array($this, 'ajax_import_upload'));
-        add_action('wp_ajax_couplands_import_process', array($this, 'ajax_import_process'));
-
-        // --- Admin actions (Listing Gallery Meta Box) ---
-        // 1. Register the Meta Box for specific Post Types
-        add_action('add_meta_boxes', array($this, 'listing_gallery_add_meta_box'));
-        // 2. Register Page Filter Builder Meta Box
+        // 1. Register Page Filter Builder Meta Box
         add_action('add_meta_boxes', array($this, 'add_page_filter_builder_meta_box'));
 
-        // 3. Save the Data
-        add_action('save_post', array($this, 'listing_gallery_save_meta'));
+        // 2. Save the Data
         add_action('save_post', array($this, 'save_page_filter_builder_meta'));
-
-        // 4. Load Scripts for Media Manager
-        add_action('admin_footer', array($this, 'listing_gallery_admin_scripts'));
 
         // --- ADMIN: Register Settings ---
         add_action('admin_init', array($this, 'register_plugin_settings'));
@@ -219,8 +222,11 @@ class Listing_System
             add_action("manage_{$cpt}_posts_custom_column", array($this, 'render_image_count_column'), 10, 2);
         }
     }
+
     /**
      * Add "Number of Images" Column to Admin Lists
+     * * @param array $columns Existing columns
+     * @return array Modified columns mapping
      */
     public function add_image_count_column($columns)
     {
@@ -237,6 +243,8 @@ class Listing_System
 
     /**
      * Render the "Number of Images" Column Data
+     * * @param string $column Current column key
+     * @param int $post_id Active post ID
      */
     public function render_image_count_column($column, $post_id)
     {
@@ -369,6 +377,7 @@ class Listing_System
         $wrapper = tag_escape($atts['wrapper']);
         return sprintf('<%1$s class="dd-location-acf-output">%2$s</%1$s>', $wrapper, $content);
     }
+    
     /**
      * Retrieves the raw CSS content for a specific Elementor template/post.
      *
@@ -393,8 +402,9 @@ class Listing_System
 
     /**
      * Helper: Get the custom archive link based on backend settings
+     * * @param string $post_type
+     * @return string Archive link URL
      */
-
     public function get_listing_archive_link($post_type)
     {
         // Products still use standard Woo archive
@@ -414,6 +424,8 @@ class Listing_System
 
     /**
      * Helper: Check if current page is the designated listing page
+     * * @param string $post_type
+     * @return bool
      */
     public function is_listing_page($post_type)
     {
@@ -433,6 +445,7 @@ class Listing_System
 
     /**
      * Helper: Get Elementor Templates
+     * * @return array Array of templates formatted for options dropdown
      */
     public function get_elementor_templates()
     {
@@ -457,6 +470,8 @@ class Listing_System
     /**
      * NEW: Load First Level Child Page Template Logic
      * Logic: If current page is a direct child of the selected "Archive Page", load the Elementor template.
+     * * @param string $template Standard template
+     * @return string Overridden template path
      */
     public function load_first_level_child_template($template)
     {
@@ -504,7 +519,7 @@ class Listing_System
     }
 
     /**
-     * 1. Enqueue Scripts (Front End)
+     * Enqueue Scripts (Front End)
      */
     public function enqueue_scripts()
     {
@@ -652,8 +667,7 @@ class Listing_System
     /**
      * Shortcode: Mobile Filter Trigger
      * [listing_filter_mobile]
-     * 
-     * Outputs a button designed to trigger the caravan filter modal.
+     * * Outputs a button designed to trigger the caravan filter modal.
      * Inherently hidden on viewports > 1024px via associated CSS.
      *
      * @param array $atts Shortcode attributes.
@@ -665,7 +679,6 @@ class Listing_System
     ?>
         <button id="cls-mobile-filter-trigger" class="cls-mobile-filter-btn" type="button" aria-label="Open Filters">
             Filters
-            <!-- Standard filter icon mirroring the provided design constraint -->
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M10 18H14V16H10V18ZM3 6V8H21V6H3ZM6 13H18V11H6V13Z" fill="currentColor" />
             </svg>
@@ -679,6 +692,8 @@ class Listing_System
      * Shortcode: View Model URL
      * [view_model_url]
      * Returns the URL of the parent page with current page filters appended.
+     * * @param array $atts Shortcode attributes.
+     * @return string URL string.
      */
     public function render_view_model_url($atts)
     {
@@ -731,6 +746,8 @@ class Listing_System
     /**
      * Shortcode: Child Grid (Model/Range) based on Page Filters
      * [listing_model_grid]
+     * * @param array $atts Shortcode attributes.
+     * @return string Grid HTML.
      */
     public function render_listing_model_grid($atts)
     {
@@ -917,20 +934,12 @@ class Listing_System
 
         return ob_get_clean();
     }
-    /**
-     * Plugin Name:       DD Term Image Shortcode
-     * Description:       A shortcode to output an ACF image field from the current taxonomy term.
-     * Version:           1.0.0
-     * Author:            Digitally Disruptive - Donald Raymundo
-     * Author URI:        https://digitallydisruptive.co.uk/
-     * Text Domain:       dd-term-image
-     */
-
+    
     /**
      * Shortcode: [dd_term_image]
-     * * Outputs an image from an ACF field attached to the current taxonomy term.
+     * Outputs an image from an ACF field attached to the current taxonomy term.
      * Intended for use on Taxonomy Archive templates.
-     * * Usage: [dd_term_image field="my_acf_image_field" size="medium" class="custom-class"]
+     * Usage: [dd_term_image field="my_acf_image_field" size="medium" class="custom-class"]
      * * @param array $atts User defined attributes in shortcode tag.
      * @return string HTML output of the image or empty string on failure.
      */
@@ -1013,6 +1022,8 @@ class Listing_System
     /**
      * Shortcode: Manufacturer Search Grid
      * [manufacturer_search year="2026"]
+     * * @param array $atts Shortcode attributes.
+     * @return string Grid HTML.
      */
     public function render_manufacturer_search($atts)
     {
@@ -1240,6 +1251,7 @@ class Listing_System
     /**
      * Shortcode: Listing Selection Form
      * [listing_selection]
+     * * @return string Filter form HTML.
      */
     public function render_listing_selection()
     {
@@ -1348,6 +1360,7 @@ class Listing_System
     /**
      * Shortcode: Pricing Display
      * [pricing]
+     * * @return string Pricing block HTML.
      */
     public function render_pricing()
     {
@@ -1379,6 +1392,8 @@ class Listing_System
     /**
      * Shortcode: Front-end Listing Gallery
      * [listing_gallery is_archive="1"]
+     * * @param array $atts Shortcode attributes.
+     * @return string Gallery output.
      */
     public function render_listing_gallery($atts)
     {
@@ -1782,9 +1797,12 @@ class Listing_System
         }
         return ob_get_clean();
     }
+
     /**
      * Shortcode: Listing Feature List
      * [listing_feature key="interior_features"]
+     * * @param array $atts Shortcode attributes.
+     * @return string Unordered list structure.
      */
     public function render_listing_feature($atts)
     {
@@ -1826,6 +1844,7 @@ class Listing_System
     /**
      * Shortcode: Listing Sorting Dropdown
      * [listing_sorting]
+     * * @return string Select dropdown HTML.
      */
     public function render_listing_sorting()
     {
@@ -1847,15 +1866,13 @@ class Listing_System
     }
 
     /* ==========================================================================
-       ADMIN MENU & IMPORTER FUNCTIONS
-       ========================================================================== */
-
-    /* ==========================================================================
        ADMIN MENU HIGHLIGHTING LOGIC
        ========================================================================== */
 
     /**
      * Forces the "Listings" parent menu to be active when viewing CPTs or Taxonomies
+     * * @param string $parent_file
+     * @return string Filtered parent file path
      */
     public function highlight_parent_menu($parent_file)
     {
@@ -1880,6 +1897,8 @@ class Listing_System
 
     /**
      * Forces the specific SUBMENU item to be active
+     * * @param string $submenu_file
+     * @return string Filtered submenu file path
      */
     public function highlight_submenu_item($submenu_file)
     {
@@ -2027,15 +2046,6 @@ class Listing_System
             array($this, 'render_filter_settings_page')
         );
 
-        // 4. Add the "Import Listings" Page under "Listings"
-        add_submenu_page(
-            'couplands-listings',
-            'Import Listings',
-            'Import Listings',
-            'manage_options',
-            'couplands-importer',
-            array($this, 'render_importer_page')
-        );
 
         // 5. Fix: The add_menu_page creates a duplicate first submenu item named "Listings".
         // We remove it so the first item is "Caravans".
@@ -2268,6 +2278,9 @@ class Listing_System
     <?php
     }
 
+    /**
+     * Renders general settings tab for archives and templates
+     */
     private function render_general_settings_tab()
     {
         // Fetch Elementor Templates for Dropdown
@@ -2435,6 +2448,10 @@ class Listing_System
     <?php
     }
 
+    /**
+     * Renders filter settings specific tab
+     * * @param string $active_tab
+     */
     private function render_filter_settings_tab($active_tab)
     {
         $option_name = 'couplands_filters_' . $active_tab;
@@ -2572,6 +2589,12 @@ class Listing_System
     <?php
     }
 
+    /**
+     * Renders a specific filter table row configuration block
+     * * @param int $index
+     * @param array $data
+     * @param string $option_name
+     */
     private function render_filter_row($index, $data, $option_name)
     {
     ?>
@@ -2603,6 +2626,9 @@ class Listing_System
        NEW: PAGE FILTER BUILDER META BOX (Updated)
        ========================================================================== */
 
+    /**
+     * Registers meta box for the page filter builder tool
+     */
     public function add_page_filter_builder_meta_box()
     {
         add_meta_box(
@@ -2677,6 +2703,10 @@ class Listing_System
         return true;
     }
 
+    /**
+     * Renders content structure of the page filter builder meta box
+     * * @param WP_Post $post Current post object
+     */
     public function render_page_filter_builder($post)
     {
         wp_nonce_field('save_couplands_page_filters', 'couplands_page_filters_nonce');
@@ -2860,6 +2890,11 @@ class Listing_System
     <?php
     }
 
+    /**
+     * Helper to render one row in the page filter builder form
+     * * @param int $index
+     * @param array $data
+     */
     private function render_page_filter_single_row($index, $data)
     {
         $type = isset($data['type']) ? esc_attr($data['type']) : 'meta';
@@ -2913,6 +2948,10 @@ class Listing_System
     <?php
     }
 
+    /**
+     * Executes sanitization and saving logic for page filter values
+     * * @param int $post_id Active post ID
+     */
     public function save_page_filter_builder_meta($post_id)
     {
         if (!isset($_POST['couplands_page_filters_nonce']) || !wp_verify_nonce($_POST['couplands_page_filters_nonce'], 'save_couplands_page_filters')) {
@@ -2947,612 +2986,14 @@ class Listing_System
         }
     }
 
-    /**
-     * Render the Importer Page and Handle Submission
-     */
-    public function render_importer_page()
-    {
-        // Enqueue script for batch processing
-        wp_enqueue_script('jquery');
-    ?>
-        <div class="wrap">
-            <h1>Import Listings (Live Update)</h1>
-            <p>Upload a CSV file to import listings. Ensure your CSV headers match the required format.</p>
-
-            <div class="card" style="max-width: 800px; padding: 20px; margin-top: 20px;">
-                <h3>CSV Column Format Guide:</h3>
-                <ul style="list-style: disc; padding-left: 20px;">
-                    <li><code>post_title</code> (Required): Name of the listing.</li>
-                    <li><code>post_type</code> (Required): caravan, motorhome, or campervan.</li>
-                    <li><code>images</code>: Comma separated URLs or IDs. First image = Featured. Rest = Gallery.</li>
-                    <li><code>make</code>: Parent term (e.g., Swift).</li>
-                    <li><code>model</code>: Child term (e.g., Challenger).</li>
-                    <li><code>tax:listing-location</code>: Location terms.</li>
-                    <li><code>meta:key_name</code>: Dynamic meta data (e.g., <code>meta:interior_features</code>).</li>
-                </ul>
-
-                <hr>
-
-                <div id="couplands-import-ui">
-                    <input type="file" id="csv_file_input" accept=".csv" />
-                    <button id="start-import-btn" class="button button-primary">Start Import</button>
-                    <div id="import-progress-bar" style="width: 100%; background: #ddd; height: 20px; margin-top: 15px; display:none;">
-                        <div id="import-progress-fill" style="width: 0%; background: #2271b1; height: 100%;"></div>
-                    </div>
-                    <div id="import-log" style="background: #f0f0f1; padding: 10px; margin-top: 15px; border: 1px solid #ccc; height: 300px; overflow-y: scroll; display:none;">
-                        <p><strong>Import Log:</strong></p>
-                    </div>
-                </div>
-
-            </div>
-        </div>
-
-        <script>
-            jQuery(document).ready(function($) {
-                $('#start-import-btn').on('click', function(e) {
-                    e.preventDefault();
-                    var file_data = $('#csv_file_input').prop('files')[0];
-                    if (!file_data) {
-                        alert("Please select a file.");
-                        return;
-                    }
-
-                    // UI Reset
-                    $('#import-log').show().append('<p>Uploading file...</p>');
-                    $('#import-progress-bar').show();
-                    $('#start-import-btn').prop('disabled', true);
-
-                    // Step 1: Upload File
-                    var form_data = new FormData();
-                    form_data.append('file', file_data);
-                    form_data.append('action', 'couplands_import_upload');
-                    form_data.append('security', '<?php echo wp_create_nonce("couplands_import_ajax"); ?>');
-
-                    $.ajax({
-                        url: ajaxurl,
-                        type: 'POST',
-                        contentType: false,
-                        processData: false,
-                        data: form_data,
-                        success: function(response) {
-                            if (response.success) {
-                                var filePath = response.data.path;
-                                var totalRows = response.data.count;
-                                $('#import-log').append('<p>File uploaded. Found ' + totalRows + ' rows. Starting batch process...</p>');
-                                processBatch(filePath, 0, totalRows);
-                            } else {
-                                $('#import-log').append('<p style="color:red">Error: ' + response.data + '</p>');
-                                $('#start-import-btn').prop('disabled', false);
-                            }
-                        },
-                        error: function() {
-                            $('#import-log').append('<p style="color:red">Upload failed.</p>');
-                        }
-                    });
-                });
-
-                // Step 2: Recursive Batch Processing
-                function processBatch(filePath, currentIndex, totalRows) {
-                    if (currentIndex >= totalRows) {
-                        $('#import-log').append('<p style="color:green; font-weight:bold;">Import Complete!</p>');
-                        $('#start-import-btn').prop('disabled', false);
-                        return;
-                    }
-
-                    $.ajax({
-                        url: ajaxurl,
-                        type: 'POST',
-                        data: {
-                            action: 'couplands_import_process',
-                            file_path: filePath,
-                            row_index: currentIndex,
-                            security: '<?php echo wp_create_nonce("couplands_import_ajax"); ?>'
-                        },
-                        success: function(response) {
-                            var percent = Math.round(((currentIndex + 1) / totalRows) * 100);
-                            $('#import-progress-fill').css('width', percent + '%');
-
-                            if (response.success) {
-                                $('#import-log').append('<p>' + response.data.message + '</p>');
-                            } else {
-                                $('#import-log').append('<p style="color:red;">Row ' + (currentIndex + 1) + ' Failed: ' + response.data + '</p>');
-                            }
-
-                            // Scroll to bottom
-                            var logDiv = document.getElementById("import-log");
-                            logDiv.scrollTop = logDiv.scrollHeight;
-
-                            // Next Row
-                            processBatch(filePath, currentIndex + 1, totalRows);
-                        },
-                        error: function() {
-                            $('#import-log').append('<p style="color:red">AJAX Error on row ' + (currentIndex + 1) + '. Retrying...</p>');
-                            // Retry after 2 seconds
-                            setTimeout(function() {
-                                processBatch(filePath, currentIndex, totalRows);
-                            }, 2000);
-                        }
-                    });
-                }
-            });
-        </script>
-    <?php
-    }
-
-    /**
-     * AJAX 1: Upload CSV and Count Rows
-     */
-    public function ajax_import_upload()
-    {
-        check_ajax_referer('couplands_import_ajax', 'security');
-
-        if (!current_user_can('manage_options') || empty($_FILES['file'])) {
-            wp_send_json_error('Permission denied or no file.');
-        }
-
-        // Upload file to temp dir
-        $upload = wp_handle_upload($_FILES['file'], ['test_form' => false]);
-        if (isset($upload['error'])) {
-            wp_send_json_error($upload['error']);
-        }
-
-        $file_path = $upload['file'];
-
-        // Count rows (minus header)
-        $line_count = 0;
-        $handle = fopen($file_path, "r");
-        while (!feof($handle)) {
-            $line = fgets($handle);
-            if (!empty(trim($line))) $line_count++;
-        }
-        fclose($handle);
-
-        // Return success
-        wp_send_json_success([
-            'path' => $file_path,
-            'count' => $line_count - 1 // Minus header
-        ]);
-    }
-
-    /**
-     * AJAX 2: Process Single Row
-     */
-    public function ajax_import_process()
-    {
-        check_ajax_referer('couplands_import_ajax', 'security');
-
-        $file_path = isset($_POST['file_path']) ? sanitize_text_field($_POST['file_path']) : '';
-        $row_index = isset($_POST['row_index']) ? intval($_POST['row_index']) : 0;
-
-        if (!file_exists($file_path)) wp_send_json_error('File missing.');
-
-        // Use SplFileObject to seek directly to the line
-        $file = new SplFileObject($file_path);
-        $file->setFlags(SplFileObject::READ_CSV);
-
-        // Get Header
-        $file->seek(0);
-        $headers = array_map('trim', array_map('strtolower', $file->current()));
-
-        // Get Row (+1 because index 0 is data row 1, but file line 0 is header)
-        $file->seek($row_index + 1);
-
-        if (!$file->valid()) {
-            wp_send_json_error('EOF');
-        }
-
-        $data = $file->current();
-
-        // Validate Data match
-        if (count($headers) !== count($data)) {
-            if (empty(implode('', $data))) wp_send_json_error('Empty Row skipped.');
-            wp_send_json_error('Column mismatch.');
-        }
-
-        $row = array_combine($headers, $data);
-
-        // Process
-        $result_title = $this->process_listing_row($row);
-
-        wp_send_json_success(['message' => "Row " . ($row_index + 1) . ": Imported '" . $result_title . "' successfully."]);
-    }
-
-    /**
-     * Logic to create/update a single listing from CSV row
-     * @param array $row Associative array of column_name => value
-     * @return string Title of post
-     */
-    private function process_listing_row($row)
-    {
-        $title = isset($row['post_title']) ? sanitize_text_field($row['post_title']) : 'Untitled';
-        $post_type = isset($row['post_type']) ? sanitize_text_field($row['post_type']) : 'caravan';
-
-        $post_data = array(
-            'post_title'   => $title,
-            'post_type'    => $post_type,
-            'post_status'  => 'publish',
-            'post_author'  => get_current_user_id()
-        );
-
-        $post_id = wp_insert_post($post_data);
-
-        if (is_wp_error($post_id)) return "Error creating post";
-
-        // 2. Process Meta and Taxonomies
-        $make = '';
-        $model = '';
-
-        foreach ($row as $key => $value) {
-            if (empty($value)) continue;
-
-            // Handle Dynamic Meta
-            // FIX: Removed comma splitting to solve the truncated value bug.
-            if (strpos($key, 'meta:') === 0) {
-                $meta_key = substr($key, 5); // remove 'meta:'
-                update_post_meta($post_id, $meta_key, sanitize_text_field($value));
-            }
-
-            // Handle Dynamic Taxonomies
-            if (strpos($key, 'tax:') === 0) {
-                $tax_name = substr($key, 4);
-                $terms = array_map('trim', explode(',', $value)); // Taxonomies still split by comma
-                wp_set_object_terms($post_id, $terms, $tax_name);
-            }
-
-            // NEW: Handle Images Column
-            if ($key === 'images') {
-                $this->handle_listing_images($post_id, $value);
-            }
-
-            if ($key === 'make') $make = sanitize_text_field($value);
-            if ($key === 'model') $model = sanitize_text_field($value);
-        }
-
-        if (!empty($make)) {
-            $this->set_hierarchical_terms($post_id, 'listing-make-model', $make, $model);
-        }
-
-        return $title;
-    }
-
-    /**
-     * NEW: Handle Image Import (Featured + Gallery)
-     */
-    private function handle_listing_images($post_id, $image_string)
-    {
-        $images = array_map('trim', explode(',', $image_string));
-        $gallery_ids = [];
-
-        foreach ($images as $index => $img_source) {
-            $attachment_id = 0;
-
-            // Check if numeric ID (internal)
-            if (is_numeric($img_source)) {
-                if (wp_attachment_is_image($img_source)) {
-                    $attachment_id = intval($img_source);
-                }
-            }
-            // Check if URL (external)
-            elseif (filter_var($img_source, FILTER_VALIDATE_URL)) {
-                $attachment_id = $this->sideload_image_if_not_exists($img_source, $post_id);
-            }
-
-            if ($attachment_id) {
-                // First image is Featured Image ONLY
-                if ($index === 0) {
-                    set_post_thumbnail($post_id, $attachment_id);
-                } else {
-                    // Subsequent images go to Gallery
-                    $gallery_ids[] = $attachment_id;
-                }
-            }
-        }
-
-        // Save Gallery Meta
-        if (!empty($gallery_ids)) {
-            $existing = get_post_meta($post_id, '_listing_gallery_ids', true);
-            update_post_meta($post_id, '_listing_gallery_ids', implode(',', $gallery_ids));
-        }
-    }
-
-    /**
-     * Helper to sideload image
-     */
-    private function sideload_image_if_not_exists($url, $post_id)
-    {
-        // 1. Check if image already exists in Media Library by URL
-        $existing_id = attachment_url_to_postid($url);
-        if ($existing_id) {
-            return $existing_id;
-        }
-
-        // 2. If not, sideload it
-        require_once(ABSPATH . 'wp-admin/includes/media.php');
-        require_once(ABSPATH . 'wp-admin/includes/file.php');
-        require_once(ABSPATH . 'wp-admin/includes/image.php');
-
-        $id = media_sideload_image($url, $post_id, null, 'id');
-
-        if (is_wp_error($id)) return 0;
-        return $id;
-    }
-
-    /**
-     * Helper: Handle Parent > Child Taxonomy Assignment
-     * @param int $post_id
-     * @param string $taxonomy
-     * @param string $parent_term e.g., "Swift"
-     * @param string $child_term e.g., "Challenger"
-     */
-    private function set_hierarchical_terms($post_id, $taxonomy, $parent_term, $child_term = '')
-    {
-        // 1. Handle Parent
-        $parent_id = 0;
-        $parent_check = term_exists($parent_term, $taxonomy);
-
-        if ($parent_check) {
-            $parent_id = is_array($parent_check) ? $parent_check['term_id'] : $parent_check;
-        } else {
-            $new_parent = wp_insert_term($parent_term, $taxonomy);
-            if (!is_wp_error($new_parent)) {
-                $parent_id = $new_parent['term_id'];
-            }
-        }
-
-        $terms_to_assign = array((int)$parent_id);
-
-        // 2. Handle Child (if exists)
-        if (!empty($child_term) && $parent_id > 0) {
-            $child_check = term_exists($child_term, $taxonomy, $parent_id);
-
-            $child_id = 0;
-            if ($child_check) {
-                $child_id = is_array($child_check) ? $child_check['term_id'] : $child_check;
-            } else {
-                $new_child = wp_insert_term($child_term, $taxonomy, array('parent' => $parent_id));
-                if (!is_wp_error($new_child)) {
-                    $child_id = $new_child['term_id'];
-                }
-            }
-
-            if ($child_id > 0) {
-                $terms_to_assign[] = (int)$child_id;
-            }
-        }
-
-        // 3. Assign Terms (Append to existing terms)
-        wp_set_object_terms($post_id, $terms_to_assign, $taxonomy, true);
-    }
-
-    /* ==========================================================================
-       LISTING GALLERY ADMIN FUNCTIONS (Backend Meta Box)
-       ========================================================================== */
-
-    /**
-     * 1. Register the Meta Box for specific Post Types
-     */
-    public function listing_gallery_add_meta_box()
-    {
-        $screens = ['campervan', 'caravan', 'motorhome'];
-
-        foreach ($screens as $screen) {
-            add_meta_box(
-                'listing_gallery_metabox',           // Unique ID
-                'Listing Gallery',                   // Box Title
-                array($this, 'listing_gallery_metabox_html'), // Content Callback
-                $screen,                             // Post Type
-                'side',                              // Context (side looks like Woo)
-                'low'                                // Priority
-            );
-        }
-    }
-
-    /**
-     * 2. Render the Meta Box HTML
-     */
-    public function listing_gallery_metabox_html($post)
-    {
-        // Add a nonce for security
-        wp_nonce_field('listing_gallery_save', 'listing_gallery_nonce');
-
-        // Retrieve existing gallery data
-        $gallery_ids = get_post_meta($post->ID, '_listing_gallery_ids', true);
-    ?>
-
-        <div id="listing_gallery_container">
-            <ul class="listing-gallery-images">
-                <?php
-                if ($gallery_ids) {
-                    $ids = explode(',', $gallery_ids);
-                    foreach ($ids as $attachment_id) {
-                        $img = wp_get_attachment_image_src($attachment_id, 'thumbnail');
-                        if ($img) {
-                            echo '<li class="image" data-attachment_id="' . esc_attr($attachment_id) . '">
-                                     <img src="' . esc_url($img[0]) . '" />
-                                     <a href="#" class="remove-image" title="Remove image">×</a>
-                                   </li>';
-                        }
-                    }
-                }
-                ?>
-            </ul>
-
-            <input type="hidden" id="listing_gallery_ids" name="listing_gallery_ids" value="<?php echo esc_attr($gallery_ids); ?>" />
-
-            <p class="add_listing_gallery_images hide-if-no-js">
-                <a href="#" class="button" id="manage_listing_gallery">Add/Edit Gallery Images</a>
-            </p>
-        </div>
-
-        <style>
-            .listing-gallery-images {
-                display: flex;
-                flex-wrap: wrap;
-                margin: 0 -5px;
-                padding: 0;
-            }
-
-            .listing-gallery-images li.image {
-                width: 80px;
-                height: 80px;
-                margin: 5px;
-                position: relative;
-                list-style: none;
-                border: 1px solid #ccc;
-                background: #f1f1f1;
-                cursor: move;
-                /* Hints at sortable capability */
-            }
-
-            .listing-gallery-images li.image img {
-                width: 100%;
-                height: 100%;
-                object-fit: cover;
-            }
-
-            .listing-gallery-images .remove-image {
-                position: absolute;
-                top: 0;
-                right: 0;
-                background: #cc0000;
-                color: #fff;
-                font-weight: bold;
-                text-decoration: none;
-                width: 20px;
-                height: 20px;
-                line-height: 18px;
-                text-align: center;
-                border-radius: 0 0 0 4px;
-            }
-        </style>
-    <?php
-    }
-
-    /**
-     * 3. Save the Data
-     */
-    public function listing_gallery_save_meta($post_id)
-    {
-        // Security checks
-        if (!isset($_POST['listing_gallery_nonce']) || !wp_verify_nonce($_POST['listing_gallery_nonce'], 'listing_gallery_save')) {
-            return;
-        }
-        if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) {
-            return;
-        }
-        if (!current_user_can('edit_post', $post_id)) {
-            return;
-        }
-
-        // Save the data
-        if (isset($_POST['listing_gallery_ids'])) {
-            update_post_meta($post_id, '_listing_gallery_ids', sanitize_text_field($_POST['listing_gallery_ids']));
-        } else {
-            delete_post_meta($post_id, '_listing_gallery_ids');
-        }
-    }
-
-    /**
-     * 4. Load Scripts for Media Manager
-     */
-    public function listing_gallery_admin_scripts()
-    {
-        global $post;
-
-        // Only load on our specific post types
-        $allowed_types = ['campervan', 'caravan', 'motorhome', 'page']; // Added page for filter builder styling
-        if (!$post || !in_array($post->post_type, $allowed_types)) {
-            return;
-        }
-
-        // Enqueue WordPress Media API
-        wp_enqueue_media();
-
-        // Check if jQuery UI Sortable is needed (optional, for drag-and-drop reordering)
-        wp_enqueue_script('jquery-ui-sortable');
-
-    ?>
-        <script>
-            jQuery(document).ready(function($) {
-                var frame;
-                var imageContainer = $('.listing-gallery-images');
-                var hiddenInput = $('#listing_gallery_ids');
-
-                // Make the list sortable
-                imageContainer.sortable({
-                    update: function(event, ui) {
-                        updateHiddenInput();
-                    }
-                });
-
-                // Open Media Manager
-                $('#manage_listing_gallery').on('click', function(e) {
-                    e.preventDefault();
-
-                    // If the frame already exists, re-open it.
-                    if (frame) {
-                        frame.open();
-                        return;
-                    }
-
-                    // Create the media frame.
-                    frame = wp.media({
-                        title: 'Select Images for Gallery',
-                        button: {
-                            text: 'Add to Gallery'
-                        },
-                        multiple: true // Allow selecting multiple images
-                    });
-
-                    // When an image is selected, run a callback.
-                    frame.on('select', function() {
-                        var selection = frame.state().get('selection');
-
-                        selection.map(function(attachment) {
-                            attachment = attachment.toJSON();
-
-                            // Prevent adding duplicates if you want
-                            if (imageContainer.find('li[data-attachment_id="' + attachment.id + '"]').length === 0) {
-                                var html = '<li class="image" data-attachment_id="' + attachment.id + '">';
-                                html += '<img src="' + (attachment.sizes.thumbnail ? attachment.sizes.thumbnail.url : attachment.url) + '" />';
-                                html += '<a href="#" class="remove-image" title="Remove image">×</a>';
-                                html += '</li>';
-                                imageContainer.append(html);
-                            }
-                        });
-
-                        updateHiddenInput();
-                    });
-
-                    frame.open();
-                });
-
-                // Remove Image Logic
-                imageContainer.on('click', '.remove-image', function(e) {
-                    e.preventDefault();
-                    $(this).parent().remove();
-                    updateHiddenInput();
-                });
-
-                // Helper: Update the hidden input with comma-separated IDs
-                function updateHiddenInput() {
-                    var ids = [];
-                    imageContainer.find('li').each(function() {
-                        ids.push($(this).data('attachment_id'));
-                    });
-                    hiddenInput.val(ids.join(','));
-                }
-            });
-        </script>
-    <?php
-    }
-
     /* ==========================================================================
        EXISTING FILTER LOGIC
        ========================================================================== */
 
     /**
      * 2. Helper: Get Unique Meta Values
+     * * @param string $key 
+     * @return array Meta value results
      */
     private function get_unique_meta_values($key)
     {
@@ -3635,6 +3076,7 @@ class Listing_System
 
     /**
      * 3. Shortcode Output
+     * Outputs the primary filtering HTML container.
      */
     public function render_caravan_filter()
     {
@@ -3661,7 +3103,6 @@ class Listing_System
     ?>
         <div class="caravan-filter-container cls-filter-modal-wrapper" id="cls-filter-modal-wrapper">
             <div class="caravan-sidebar cls-filter-modal-content">
-                <!-- Injected Modal Close Button (CSS handles visibility) -->
                 <div class="modal--header">
                     <h4>Filters</h4>
                     <button id="cls-filter-modal-close" class="cls-filter-modal-close cls-filter-modal-close-trigger" type="button" aria-label="Close Filters">Close <span>×</span></button>
@@ -3778,6 +3219,7 @@ class Listing_System
 
     /**
      * 4. AJAX Handler
+     * Triggers dynamic search requests for the listing archives.
      */
     public function ajax_filter_caravans()
     {
@@ -4015,6 +3457,8 @@ class Listing_System
 
     /**
      * 5. HTML Generator
+     * * @param array $args
+     * @return string Query resultant HTML.
      */
     private function get_caravan_listing_html($args = [])
     {
@@ -4233,8 +3677,7 @@ class Listing_System
                 /**
                  * Debounce utility to prevent layout thrashing and performance degradation 
                  * during rapid window resizing events.
-                 * 
-                 * @param {Function} func - The callback function to debounce.
+                 * * @param {Function} func - The callback function to debounce.
                  * @param {number} wait - The delay in milliseconds before execution.
                  * @returns {Function} - The throttled/debounced function.
                  */
@@ -4454,8 +3897,7 @@ class Listing_System
 
                 /**
                  * Updates filter inputs (disabling empty options) based on available faceted data.
-                 * 
-                 * @param {Object} facets JSON object containing populated filter values from the database.
+                 * * @param {Object} facets JSON object containing populated filter values from the database.
                  */
                 function updateFilters(facets) {
 
