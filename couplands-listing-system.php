@@ -597,11 +597,6 @@ class Listing_System
                 }
             }
 
-            @media (max-width: 575px) {
-                .couplands-meta-grid {
-                    grid-template-columns: 1fr;
-                }
-            }
         </style>
     <?php
         return ob_get_clean();
@@ -3623,7 +3618,7 @@ class Listing_System
                 <!-- Injected Modal Close Button (CSS handles visibility) -->
                 <div class="modal--header">
                     <h4>Filters</h4>
-                    <button id="cls-filter-modal-close" class="cls-filter-modal-close cls-filter-modal-close-trigger" type="button" aria-label="Close Filters">Close <span>&times;</span></button>
+                    <button id="cls-filter-modal-close" class="cls-filter-modal-close cls-filter-modal-close-trigger" type="button" aria-label="Close Filters">Close <span>×</span></button>
                 </div>
                 <form id="caravan-filter-form">
                     <input type="hidden" value="<?= $post_type ?>" name="post_type" id="post_type">
@@ -3950,25 +3945,18 @@ class Listing_System
             }
         }
 
-        // --- Run Actual Paginated Query to get Max Pages & Total Posts ---
+        // --- Run Actual Paginated Query to get Max Pages ---
         $query = new WP_Query($args);
         $max_pages = $query->max_num_pages;
-
-        /**
-         * Retrieve the total number of posts found matching the current query criteria
-         * prior to pagination limits being applied.
-         */
-        $total_posts = $query->found_posts;
         wp_reset_postdata();
 
         // --- Get HTML ---
         $html = $this->get_caravan_listing_html($args);
 
         wp_send_json_success([
-            'html'        => $html,
-            'facets'      => $available,
-            'max_pages'   => $max_pages, // Return max pages for JS logic
-            'total_posts' => $total_posts // Pass the total aggregate count to the frontend
+            'html'      => $html,
+            'facets'    => $available,
+            'max_pages' => $max_pages // NEW: Return max pages for JS logic
         ]);
     }
 
@@ -4341,19 +4329,7 @@ class Listing_System
                                     $resultContainer.html(response.data.html);
                                 }
 
-                                /**
-                                 * Dynamically calculate and update the current visible items count.
-                                 * Relies on Elementor's native '.e-loop-item' class.
-                                 */
                                 $('.post-count').text($('#my-loop-grid-container .e-loop-item').length);
-
-                                /**
-                                 * Inject the absolute total aggregate count of available posts
-                                 * retrieved from the WP_Query backend response.
-                                 */
-                                if (response.data.total_posts !== undefined) {
-                                    $('.post-count-total').text(response.data.total_posts);
-                                }
 
                                 // Only update facets if we are on page 1 (re-filtering)
                                 // Facets are returned empty/partial on paged > 1 requests to save processing
@@ -4361,7 +4337,7 @@ class Listing_System
                                     updateFilters(response.data.facets);
                                 }
 
-                                // Update Max Pages and Button Visibility
+                                // NEW: Update Max Pages and Button Visibility
                                 if (response.data.max_pages !== undefined) {
                                     maxPages = response.data.max_pages;
                                 }
@@ -4376,6 +4352,9 @@ class Listing_System
                             }
                             $resultContainer.removeClass('caravan-loader');
                         },
+                        error: function() {
+                            $resultContainer.removeClass('caravan-loader');
+                        }
                     });
                 }
 
@@ -4480,4 +4459,3 @@ class Listing_System
     }
 }
 new Listing_System();
-?>
