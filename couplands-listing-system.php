@@ -1419,7 +1419,7 @@ class Listing_System
         }
     ?>
         <div class="pricing">
-            <div class="pricing-box pricing-box-main">
+            <div class="pricing-box pricing-box-">
                 <span class="pricing-box-inner">
                     <span class="prefix-suffix">Only</span>
                     <span class="value"><?= esc_html($fmt_price); ?></span>
@@ -1662,7 +1662,7 @@ class Listing_System
                                 <div class="pricing-box">
                                     <span class="prefix-suffix">From</span>
                                     <span class="value"><?= $fmt_month; ?></span>
-                                    <span class="prefix-suffix">per month</span>
+                                    <span class="prefix-suffix">per month*</span>
                                 </div>
                             </div>
                         <?php } ?>
