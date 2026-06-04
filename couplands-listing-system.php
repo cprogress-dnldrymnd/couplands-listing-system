@@ -1363,27 +1363,28 @@ class Listing_System
      * Shortcode: Pricing Display
      * [pricing]
      * Calculates monthly cost dynamically and displays RRP if on sale.
+     * Incorporates 8.5% UK APR calculation.
      * * @return string Pricing block HTML.
      */
     public function render_pricing()
     {
         ob_start();
         $post_id = get_the_ID();
-
+        
         // Retrieve values
         $price = function_exists('get_field') ? get_field('price', $post_id) : get_post_meta($post_id, 'price', true);
         $rrp   = function_exists('get_field') ? get_field('rrp', $post_id) : get_post_meta($post_id, 'rrp', true);
-
+        
         // 1. Clean the strings to ensure they are valid floats
         $clean_price = (float) preg_replace('/[^\d.]/', '', (string) $price);
         $clean_rrp   = (float) preg_replace('/[^\d.]/', '', (string) $rrp);
-
+        
         $per_month = '';
         $is_sale   = false;
 
         // 2. Perform the calculation if a valid price exists
         if ($clean_price > 0) {
-
+            
             // Check if item is on sale
             if ($clean_rrp > 0 && $clean_price < $clean_rrp) {
                 $is_sale = true;
@@ -1391,19 +1392,22 @@ class Listing_System
 
             $deposit_percentage = 0.20; // 20% deposit
             $term_months        = 120;  // 120 month term
-
-            // Set your interest rate here (e.g., 0.099 for 9.9% APR). Set to 0 for no interest.
-            $apr = 0;
-
+            
+            // Update APR based on the provided finance example
+            $apr = 0.085; // 8.5% APR
+            
             $deposit   = $clean_price * $deposit_percentage;
             $principal = $clean_price - $deposit;
 
             if ($apr > 0) {
-                // Amortized loan formula for interest-bearing finance
-                $monthly_rate = $apr / 12;
+                // In the UK, APR is treated as an Effective Annual Rate (EAR).
+                // Calculate the exact monthly interest rate from the annual APR.
+                $monthly_rate = pow(1 + $apr, 1 / 12) - 1;
+                
+                // Standard Amortized loan formula using the effective monthly rate
                 $per_month = $principal * ($monthly_rate * pow(1 + $monthly_rate, $term_months)) / (pow(1 + $monthly_rate, $term_months) - 1);
             } else {
-                // Basic division for 0% interest
+                // Basic division for 0% interest fallback
                 $per_month = $principal / $term_months;
             }
         }
@@ -1411,7 +1415,7 @@ class Listing_System
         // 3. Format the outputs safely
         $fmt_price = function_exists('price_format') ? price_format($price) : '£' . number_format($clean_price, 2);
         $fmt_rrp   = function_exists('price_format') ? price_format($rrp) : '£' . number_format($clean_rrp, 2);
-
+        
         // Format calculated monthly price
         $fmt_month = '';
         if (!empty($per_month)) {
@@ -1419,31 +1423,27 @@ class Listing_System
         }
     ?>
         <div class="pricing">
-            <div class="pricing-box pricing-box-">
-                <span class="pricing-box-inner">
-                    <span class="prefix-suffix">Only</span>
-                    <span class="value"><?= esc_html($fmt_price); ?></span>
-                </span>
-                <span class="pricing-box-inner">
-                    <?php if ($is_sale) : ?>
-                        <span class="rrp-price" style="display: block; font-size: 14px; color: #888; text-decoration: line-through; margin-top: 4px; line-height: 1;">
-                            Was <?= esc_html($fmt_rrp); ?>
-                        </span>
-                    <?php endif; ?>
-                </span>
+            <div class="pricing-box">
+                <span class="prefix-suffix">Only</span>
+                <span class="value"><?= esc_html($fmt_price); ?></span>
+                
+                <?php if ($is_sale) : ?>
+                    <span class="rrp-price" style="display: block; font-size: 14px; color: #888; text-decoration: line-through; margin-top: 4px; line-height: 1;">
+                        Was <?= esc_html($fmt_rrp); ?>
+                    </span>
+                <?php endif; ?>
             </div>
             <?php if ($fmt_month) { ?>
                 <div class="pricing-box">
                     <span class="prefix-suffix">From</span>
                     <span class="value"><?= esc_html($fmt_month); ?></span>
-                    <span class="prefix-suffix">per <br>month*</span>
+                    <span class="prefix-suffix">per <br>month</span>
                 </div>
             <?php } ?>
         </div>
         <?php
         return ob_get_clean();
     }
-
     /**
      * Shortcode: Sale Indicator
      * [is_sale]
