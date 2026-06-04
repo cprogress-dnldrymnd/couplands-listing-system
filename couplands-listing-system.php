@@ -1436,7 +1436,7 @@ class Listing_System
                 <div class="pricing-box">
                     <span class="prefix-suffix">From</span>
                     <span class="value"><?= esc_html($fmt_month); ?></span>
-                    <span class="prefix-suffix">per <br>month</span>
+                    <span class="prefix-suffix">per <br>month*</span>
                 </div>
             <?php } ?>
         </div>
