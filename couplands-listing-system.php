@@ -175,6 +175,7 @@ class Listing_System
         add_shortcode('location_details', array($this, 'render_location_details'));
         add_shortcode('listing_selection', array($this, 'render_listing_selection'));
         add_shortcode('pricing', array($this, 'render_pricing'));
+        add_shortcode('is_sale', array($this, 'render_is_sale'));
         add_shortcode('listing_gallery', array($this, 'render_listing_gallery'));
         add_shortcode('listing_feature', array($this, 'render_listing_feature'));
         add_shortcode('listing_meta_fields', array($this, 'render_listing_meta_fields'));
@@ -1418,6 +1419,38 @@ class Listing_System
         </div>
         <?php
         return ob_get_clean();
+    }
+
+    /**
+     * Shortcode: Sale Indicator
+     * [is_sale]
+     * Compares 'rrp' and 'price' meta fields. Returns a 'Sale!' badge if price is lower than RRP.
+     * * @param array $atts Shortcode attributes.
+     * @return string Sale badge HTML or empty string.
+     */
+    public function render_is_sale($atts)
+    {
+        $post_id = get_the_ID();
+        
+        if (!$post_id) {
+            return '';
+        }
+
+        // Retrieve raw values via ACF if active, or fallback to standard post meta
+        $price_raw = function_exists('get_field') ? get_field('price', $post_id) : get_post_meta($post_id, 'price', true);
+        $rrp_raw   = function_exists('get_field') ? get_field('rrp', $post_id) : get_post_meta($post_id, 'rrp', true);
+
+        // Strip non-numeric characters (except decimals) to ensure accurate mathematical comparison
+        $clean_price = (float) preg_replace('/[^\d.]/', '', (string) $price_raw);
+        $clean_rrp   = (float) preg_replace('/[^\d.]/', '', (string) $rrp_raw);
+
+        // Verify RRP exists and check if the current price is strictly less than the RRP
+        if ($clean_rrp > 0 && $clean_price > 0 && $clean_price < $clean_rrp) {
+            return '<span class="is_sale">Sale!</span>';
+        }
+
+        // Return empty string if not on sale (or if values are missing)
+        return '';
     }
 
     /**
