@@ -378,7 +378,7 @@ class Listing_System
         $wrapper = tag_escape($atts['wrapper']);
         return sprintf('<%1$s class="dd-location-acf-output">%2$s</%1$s>', $wrapper, $content);
     }
-    
+
     /**
      * Retrieves the raw CSS content for a specific Elementor template/post.
      *
@@ -936,7 +936,7 @@ class Listing_System
 
         return ob_get_clean();
     }
-    
+
     /**
      * Shortcode: [dd_term_image]
      * Outputs an image from an ACF field attached to the current taxonomy term.
@@ -1359,7 +1359,7 @@ class Listing_System
         return ob_get_clean();
     }
 
-  /**
+    /**
      * Shortcode: Pricing Display
      * [pricing]
      * Calculates monthly cost dynamically and displays RRP if on sale.
@@ -1369,21 +1369,21 @@ class Listing_System
     {
         ob_start();
         $post_id = get_the_ID();
-        
+
         // Retrieve values
         $price = function_exists('get_field') ? get_field('price', $post_id) : get_post_meta($post_id, 'price', true);
         $rrp   = function_exists('get_field') ? get_field('rrp', $post_id) : get_post_meta($post_id, 'rrp', true);
-        
+
         // 1. Clean the strings to ensure they are valid floats
         $clean_price = (float) preg_replace('/[^\d.]/', '', (string) $price);
         $clean_rrp   = (float) preg_replace('/[^\d.]/', '', (string) $rrp);
-        
+
         $per_month = '';
         $is_sale   = false;
 
         // 2. Perform the calculation if a valid price exists
         if ($clean_price > 0) {
-            
+
             // Check if item is on sale
             if ($clean_rrp > 0 && $clean_price < $clean_rrp) {
                 $is_sale = true;
@@ -1391,10 +1391,10 @@ class Listing_System
 
             $deposit_percentage = 0.20; // 20% deposit
             $term_months        = 120;  // 120 month term
-            
+
             // Set your interest rate here (e.g., 0.099 for 9.9% APR). Set to 0 for no interest.
-            $apr = 0; 
-            
+            $apr = 0;
+
             $deposit   = $clean_price * $deposit_percentage;
             $principal = $clean_price - $deposit;
 
@@ -1411,7 +1411,7 @@ class Listing_System
         // 3. Format the outputs safely
         $fmt_price = function_exists('price_format') ? price_format($price) : '£' . number_format($clean_price, 2);
         $fmt_rrp   = function_exists('price_format') ? price_format($rrp) : '£' . number_format($clean_rrp, 2);
-        
+
         // Format calculated monthly price
         $fmt_month = '';
         if (!empty($per_month)) {
@@ -1420,14 +1420,17 @@ class Listing_System
     ?>
         <div class="pricing">
             <div class="pricing-box">
-                <span class="prefix-suffix">Only</span>
-                <span class="value"><?= esc_html($fmt_price); ?></span>
-                
-                <?php if ($is_sale) : ?>
-                    <span class="rrp-price" style="display: block; font-size: 14px; color: #888; text-decoration: line-through; margin-top: 4px; line-height: 1;">
-                        Was <?= esc_html($fmt_rrp); ?>
-                    </span>
-                <?php endif; ?>
+                <span class="pricing-box-inner">
+                    <span class="prefix-suffix">Only</span>
+                    <span class="value"><?= esc_html($fmt_price); ?></span>
+                </span>
+                <span class="pricing-box-inner">
+                    <?php if ($is_sale) : ?>
+                        <span class="rrp-price" style="display: block; font-size: 14px; color: #888; text-decoration: line-through; margin-top: 4px; line-height: 1;">
+                            Was <?= esc_html($fmt_rrp); ?>
+                        </span>
+                    <?php endif; ?>
+                </span>
             </div>
             <?php if ($fmt_month) { ?>
                 <div class="pricing-box">
@@ -1451,7 +1454,7 @@ class Listing_System
     public function render_is_sale($atts)
     {
         $post_id = get_the_ID();
-        
+
         if (!$post_id) {
             return '';
         }
@@ -2486,14 +2489,14 @@ class Listing_System
         <h3>Fallback Placeholder Images</h3>
         <p>These images will automatically display in the gallery and grid shortcodes if a listing has no images attached.</p>
         <table class="form-table">
-            <?php 
+            <?php
             $post_types_placeholders = [
                 'caravan'   => 'Caravan',
                 'motorhome' => 'Motorhome',
                 'campervan' => 'Campervan'
             ];
-            
-            foreach ($post_types_placeholders as $pt_slug => $pt_label) : 
+
+            foreach ($post_types_placeholders as $pt_slug => $pt_label) :
                 $opt_name = 'couplands_placeholder_image_' . $pt_slug;
                 $placeholder_id = get_option($opt_name);
                 $placeholder_url = $placeholder_id ? wp_get_attachment_image_url($placeholder_id, 'medium') : '';
