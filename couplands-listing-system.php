@@ -1358,30 +1358,60 @@ class Listing_System
         return ob_get_clean();
     }
 
-    /**
+   /**
      * Shortcode: Pricing Display
      * [pricing]
+     * Calculates monthly cost dynamically based on a 20% deposit and 120-month term.
      * * @return string Pricing block HTML.
      */
     public function render_pricing()
     {
         ob_start();
         $price = function_exists('get_field') ? get_field('price') : '';
-        $per_month = function_exists('get_field') ? get_field('per_month') : '';
+        
+        // 1. Clean the price string to ensure it's a valid float for mathematical operations
+        $clean_price = (float) preg_replace('/[^\d.]/', '', (string) $price);
+        $per_month = '';
 
-        // Helper to format price if function doesn't exist to prevent errors
-        $fmt_price = function_exists('price_format') ? price_format($price) : $price;
-        $fmt_month = function_exists('price_format') ? price_format($per_month) : $per_month;
+        // 2. Perform the calculation if a valid price exists
+        if ($clean_price > 0) {
+            $deposit_percentage = 0.20; // 20% deposit
+            $term_months        = 120;  // 120 month term
+            
+            // Set your interest rate here (e.g., 0.099 for 9.9% APR). Set to 0 for no interest.
+            $apr = 0; 
+            
+            $deposit   = $clean_price * $deposit_percentage;
+            $principal = $clean_price - $deposit;
+
+            if ($apr > 0) {
+                // Amortized loan formula for interest-bearing finance
+                $monthly_rate = $apr / 12;
+                $per_month = $principal * ($monthly_rate * pow(1 + $monthly_rate, $term_months)) / (pow(1 + $monthly_rate, $term_months) - 1);
+            } else {
+                // Basic division for 0% interest
+                $per_month = $principal / $term_months;
+            }
+        }
+
+        // 3. Format the outputs safely
+        $fmt_price = function_exists('price_format') ? price_format($price) : '£' . number_format($clean_price, 2);
+        
+        // Format calculated monthly price (fallback to standard number_format if price_format fails/doesn't exist)
+        $fmt_month = '';
+        if (!empty($per_month)) {
+            $fmt_month = function_exists('price_format') ? price_format($per_month) : '£' . number_format($per_month, 2);
+        }
     ?>
         <div class="pricing">
             <div class="pricing-box">
                 <span class="prefix-suffix">Only</span>
-                <span class="value"><?= $fmt_price; ?></span>
+                <span class="value"><?= esc_html($fmt_price); ?></span>
             </div>
             <?php if ($fmt_month) { ?>
                 <div class="pricing-box">
                     <span class="prefix-suffix">From</span>
-                    <span class="value"><?= $fmt_month; ?></span>
+                    <span class="value"><?= esc_html($fmt_month); ?></span>
                     <span class="prefix-suffix">per <br>month</span>
                 </div>
             <?php } ?>
