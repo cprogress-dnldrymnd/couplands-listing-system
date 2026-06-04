@@ -1419,7 +1419,7 @@ class Listing_System
         }
     ?>
         <div class="pricing">
-            <div class="pricing-box">
+            <div class="pricing-box pricing-box-main">
                 <span class="pricing-box-inner">
                     <span class="prefix-suffix">Only</span>
                     <span class="value"><?= esc_html($fmt_price); ?></span>
