@@ -1359,23 +1359,36 @@ class Listing_System
         return ob_get_clean();
     }
 
-   /**
+  /**
      * Shortcode: Pricing Display
      * [pricing]
-     * Calculates monthly cost dynamically based on a 20% deposit and 120-month term.
+     * Calculates monthly cost dynamically and displays RRP if on sale.
      * * @return string Pricing block HTML.
      */
     public function render_pricing()
     {
         ob_start();
-        $price = function_exists('get_field') ? get_field('price') : '';
+        $post_id = get_the_ID();
         
-        // 1. Clean the price string to ensure it's a valid float for mathematical operations
+        // Retrieve values
+        $price = function_exists('get_field') ? get_field('price', $post_id) : get_post_meta($post_id, 'price', true);
+        $rrp   = function_exists('get_field') ? get_field('rrp', $post_id) : get_post_meta($post_id, 'rrp', true);
+        
+        // 1. Clean the strings to ensure they are valid floats
         $clean_price = (float) preg_replace('/[^\d.]/', '', (string) $price);
+        $clean_rrp   = (float) preg_replace('/[^\d.]/', '', (string) $rrp);
+        
         $per_month = '';
+        $is_sale   = false;
 
         // 2. Perform the calculation if a valid price exists
         if ($clean_price > 0) {
+            
+            // Check if item is on sale
+            if ($clean_rrp > 0 && $clean_price < $clean_rrp) {
+                $is_sale = true;
+            }
+
             $deposit_percentage = 0.20; // 20% deposit
             $term_months        = 120;  // 120 month term
             
@@ -1397,8 +1410,9 @@ class Listing_System
 
         // 3. Format the outputs safely
         $fmt_price = function_exists('price_format') ? price_format($price) : '£' . number_format($clean_price, 2);
+        $fmt_rrp   = function_exists('price_format') ? price_format($rrp) : '£' . number_format($clean_rrp, 2);
         
-        // Format calculated monthly price (fallback to standard number_format if price_format fails/doesn't exist)
+        // Format calculated monthly price
         $fmt_month = '';
         if (!empty($per_month)) {
             $fmt_month = function_exists('price_format') ? price_format($per_month) : '£' . number_format($per_month, 2);
@@ -1408,6 +1422,12 @@ class Listing_System
             <div class="pricing-box">
                 <span class="prefix-suffix">Only</span>
                 <span class="value"><?= esc_html($fmt_price); ?></span>
+                
+                <?php if ($is_sale) : ?>
+                    <span class="rrp-price" style="display: block; font-size: 14px; color: #888; text-decoration: line-through; margin-top: 4px; line-height: 1;">
+                        Was <?= esc_html($fmt_rrp); ?>
+                    </span>
+                <?php endif; ?>
             </div>
             <?php if ($fmt_month) { ?>
                 <div class="pricing-box">
