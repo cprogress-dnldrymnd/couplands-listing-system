@@ -3335,6 +3335,76 @@ class Listing_System
      * 4. AJAX Handler
      * Triggers dynamic search requests for the listing archives.
      */
+    /**
+     * Counts how many posts a given WP_Query argument set would return,
+     * without loading post objects (uses 'ids' for speed).
+     *
+     * @param array $args WP_Query arguments.
+     * @return int Total number of matching posts.
+     */
+    private function count_matching_posts($args)
+    {
+        $count_args = $args;
+        $count_args['posts_per_page'] = 1;
+        $count_args['paged'] = 1;
+        $count_args['fields'] = 'ids';
+        $count_args['no_found_rows'] = false;
+
+        $q = new WP_Query($count_args);
+        $found = (int) $q->found_posts;
+        wp_reset_postdata();
+
+        return $found;
+    }
+
+    /**
+     * Guarantees the listing grid never shows "No results".
+     *
+     * If the fully-filtered query returns zero posts, filters are progressively
+     * relaxed until at least one post matches: secondary meta filters are dropped
+     * first (from the most recently applied), then taxonomy filters. The base
+     * "Listing" category constraint (tax_query index 0) is always preserved so we
+     * only ever fall back to other valid listings.
+     *
+     * @param array $args The fully-built WP_Query arguments.
+     * @return array Arguments guaranteed to return at least one post (where possible).
+     */
+    private function get_args_with_guaranteed_results($args)
+    {
+        // Strict query already has results — nothing to relax.
+        if ($this->count_matching_posts($args) > 0) {
+            return $args;
+        }
+
+        // Keep dropping the least-important constraint until we get a hit.
+        while ($this->count_matching_posts($args) === 0) {
+            // 1. Relax meta_query filters first (drop the most recently added).
+            if (!empty($args['meta_query'])) {
+                $meta_keys = array_filter(array_keys($args['meta_query']), 'is_int');
+                if (!empty($meta_keys)) {
+                    unset($args['meta_query'][max($meta_keys)]);
+                    continue;
+                }
+            }
+
+            // 2. Then relax taxonomy filters, but never the base "Listing" category (index 0).
+            if (!empty($args['tax_query'])) {
+                $tax_keys = array_filter(array_keys($args['tax_query']), function ($k) {
+                    return is_int($k) && $k !== 0;
+                });
+                if (!empty($tax_keys)) {
+                    unset($args['tax_query'][max($tax_keys)]);
+                    continue;
+                }
+            }
+
+            // Nothing left to relax beyond the base category — stop.
+            break;
+        }
+
+        return $args;
+    }
+
     public function ajax_filter_caravans()
     {
         $post_type = isset($_POST['post_type']) ? sanitize_text_field($_POST['post_type']) : 'caravan';
@@ -3476,6 +3546,13 @@ class Listing_System
                 }
             }
         }
+
+        // --- Guarantee Results: never show "No results" ---
+        // If the strict filter combination matches nothing, progressively relax the
+        // filters (keeping the base "Listing" category) until something matches.
+        // Facets, totals, and HTML below all use these effective args so the UI stays
+        // consistent with what's actually displayed.
+        $args = $this->get_args_with_guaranteed_results($args);
 
         // --- Calculate Facets (Correctly) ---
         // If we only query 12 items, facets will be incomplete.
