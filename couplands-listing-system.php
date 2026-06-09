@@ -4140,11 +4140,14 @@ class Listing_System
                 /**
                  * Executes the AJAX request to fetch and render listings based on active filters.
                  *
-                 * @param {boolean} isLoadMore Dictates whether to append to the DOM or replace entirely.
+                 * @param {boolean} isLoadMore   Dictates whether to append to the DOM or replace entirely.
+                 * @param {boolean} skipUrlSync  Skip writing the URL (used on initial page load).
                  */
-                function fetchCaravans(isLoadMore) {
-                    // Keep the URL in sync on filter/sort changes (not on Load More paging).
-                    if (!isLoadMore) {
+                function fetchCaravans(isLoadMore, skipUrlSync) {
+                    // Keep the URL in sync on filter/sort changes (not on Load More
+                    // paging, and not on the initial page load — otherwise the default
+                    // hidden 'condition' would be written to the URL unprompted).
+                    if (!isLoadMore && !skipUrlSync) {
                         syncUrl();
                     }
 
@@ -4336,7 +4339,8 @@ class Listing_System
                 // Since render_caravan_filter() handles initial state via PHP, we don't strictly need 
                 // to call fetchCaravans() immediately on page load unless you want to re-sync facets immediately.
                 // However, standard behavior is to fetch to get facets for the initial selection.
-                fetchCaravans(false);
+                // Pass skipUrlSync=true so the default condition isn't auto-written to the URL.
+                fetchCaravans(false, true);
             });
         </script>
 <?php
