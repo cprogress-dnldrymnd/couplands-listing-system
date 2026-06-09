@@ -4050,9 +4050,10 @@ class Listing_System
                     // Reset Sort Dropdown
                     $('.listing-sort-dropdown').val('');
 
-                    // Reset Visuals
-                    $('select.filter-input option').prop('disabled', false);
-                    $('input.filter-input').prop('disabled', false).closest('label').css('opacity', '1');
+                    // Reset Visuals — restore any hidden options/labels. Selects are
+                    // rebuilt from their cached option list by the fetchCaravans() call
+                    // below; here we just un-hide the checkbox/radio labels.
+                    $('input.filter-input').prop('disabled', false).closest('label').css('opacity', '1').show();
                     $('select.filter-input').prop('disabled', false);
 
                     // Uncheck checkboxes/radios
@@ -4206,27 +4207,49 @@ class Listing_System
                 }
 
                 /**
-                 * Updates filter inputs (disabling empty options) based on available faceted data.
+                 * Updates filter inputs by COMPLETELY HIDING options that are not
+                 * available under the current facets (not merely disabling them).
                  * * @param {Object} facets JSON object containing populated filter values from the database.
                  */
                 function updateFilters(facets) {
 
-                    // 0. Disable Makes that would return no results under the other
-                    //    active filters. The currently-selected make is left enabled
-                    //    so the user can always see/change their own selection.
+                    /**
+                     * Rebuilds a <select> so it contains ONLY the available options,
+                     * removing the rest from the DOM entirely. The complete original
+                     * option list is cached on the element so options reappear once
+                     * they become available again. The placeholder and the currently
+                     * selected value are always kept.
+                     */
+                    const rebuildSelect = ($select, validValues) => {
+                        if (!$select.length) return;
+                        const validStr = Array.isArray(validValues) ? validValues.map(String) : [];
+
+                        // Cache the full option set once, the first time we touch it.
+                        if (!$select.data('cls-all-options')) {
+                            $select.data('cls-all-options', $select.find('option').clone());
+                        }
+                        const $allOptions = $select.data('cls-all-options');
+                        const currentVal = String($select.val() || '');
+
+                        $select.empty();
+                        $allOptions.each(function() {
+                            const $opt = $(this).clone();
+                            const val = String($opt.val());
+                            if (val === "" || validStr.includes(val) || val === currentVal) {
+                                $select.append($opt);
+                            }
+                        });
+                        $select.val(currentVal);
+                    };
+
+                    // 0. MAKES — show only makes that still return results.
                     const $makeSelect = $('#filter-make');
                     if ($makeSelect.length && Array.isArray(facets.makes)) {
-                        const availableMakes = facets.makes.map(String);
-                        const selectedMake = String($makeSelect.val() || '');
-                        $makeSelect.find('option').each(function() {
-                            const val = $(this).val();
-                            if (val === "") return; // Skip placeholder
-                            const enabled = availableMakes.includes(val) || val === selectedMake;
-                            $(this).prop('disabled', !enabled);
-                        });
+                        rebuildSelect($makeSelect, facets.makes);
                     }
 
-                    // 1. Update Models (Dependent Logic)
+                    // 1. MODELS (dependent on Make) — rebuilt fresh from facets, so
+                    //    only available models are ever present.
                     const $modelSelect = $('#filter-model');
                     const currentModel = $modelSelect.val();
                     const makeVal = $('#filter-make').val();
@@ -4245,34 +4268,23 @@ class Listing_System
                         }
                     }
 
-                    // 2. Generic Field Updater
+                    // 2. Generic Field Updater — completely hide unavailable options.
                     const updateField = (fieldName, availableValues) => {
-                        // Ensure availableValues is an array and convert to strings
                         const validStr = Array.isArray(availableValues) ? availableValues.map(String) : [];
-
-                        // Select the input element(s)
                         const $el = $('[name="' + fieldName + '"], [name="' + fieldName + '[]"]');
 
                         if ($el.is('select')) {
-                            // --- HANDLE SELECT DROPDOWN ---
-                            $el.find('option').each(function() {
-                                const val = $(this).val();
-                                if (val === "") return; // Skip placeholder
-
-                                if (validStr.includes(val)) {
-                                    $(this).prop('disabled', false);
-                                } else {
-                                    $(this).prop('disabled', true);
-                                }
+                            // --- SELECT: remove unavailable options from the DOM. ---
+                            $el.each(function() {
+                                rebuildSelect($(this), validStr);
                             });
                         } else {
-                            // --- HANDLE CHECKBOX / RADIO ---
+                            // --- CHECKBOX / RADIO: hide the whole label entirely. ---
+                            //     Keep any currently-checked value visible.
                             $el.each(function() {
-                                const val = $(this).val();
-                                const isValid = validStr.includes(val);
-
-                                $(this).prop('disabled', !isValid);
-                                $(this).closest('label').css('opacity', isValid ? '1' : '0.5');
+                                const val = String($(this).val());
+                                const isValid = validStr.includes(val) || $(this).is(':checked');
+                                $(this).closest('label').toggle(isValid);
                             });
                         }
                     };
