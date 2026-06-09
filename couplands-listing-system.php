@@ -3108,14 +3108,29 @@ class Listing_System
      * * @param string $key 
      * @return array Meta value results
      */
-    private function get_unique_meta_values($key)
+    private function get_unique_meta_values($key, $post_type = '')
     {
         global $wpdb;
-        $results = $wpdb->get_col($wpdb->prepare("
-            SELECT DISTINCT meta_value FROM {$wpdb->postmeta} 
+
+        // Scope to published posts of the current post type so we never surface
+        // meta values that only exist on other post types.
+        if (!empty($post_type)) {
+            return $wpdb->get_col($wpdb->prepare("
+                SELECT DISTINCT pm.meta_value
+                FROM {$wpdb->postmeta} pm
+                INNER JOIN {$wpdb->posts} p ON p.ID = pm.post_id
+                WHERE pm.meta_key = %s
+                  AND pm.meta_value != ''
+                  AND p.post_type = %s
+                  AND p.post_status = 'publish'
+                ORDER BY pm.meta_value ASC
+            ", $key, $post_type));
+        }
+
+        return $wpdb->get_col($wpdb->prepare("
+            SELECT DISTINCT meta_value FROM {$wpdb->postmeta}
             WHERE meta_key = %s AND meta_value != '' ORDER BY meta_value ASC
         ", $key));
-        return $results;
     }
 
     /**
@@ -3230,6 +3245,16 @@ class Listing_System
                     <?php
                     // Loop through configured filters
                     if (!empty($config)) {
+                        // Published post IDs for THIS post type — used to scope the
+                        // "other" filter options so we only ever show taxonomy terms /
+                        // meta values that actually exist on the current post type.
+                        $post_type_ids = get_posts([
+                            'post_type'      => $post_type,
+                            'post_status'    => 'publish',
+                            'posts_per_page' => -1,
+                            'fields'         => 'ids',
+                        ]);
+
                         foreach ($config as $filter) {
                             $slug = $filter['slug'];
                             $label = $filter['label'];
@@ -3282,16 +3307,21 @@ class Listing_System
                                 continue;
                             }
 
-                            // General Case: Get Options
+                            // General Case: Get Options (scoped to the current post type)
                             $options = [];
                             if ($type === 'taxonomy') {
-                                $terms = get_terms(['taxonomy' => $slug, 'hide_empty' => true]);
+                                $term_args = ['taxonomy' => $slug, 'hide_empty' => true];
+                                // Limit to terms attached to this post type's posts.
+                                if (!empty($post_type_ids)) {
+                                    $term_args['object_ids'] = $post_type_ids;
+                                }
+                                $terms = get_terms($term_args);
                                 if (!is_wp_error($terms)) {
                                     $options = wp_list_pluck($terms, 'name', 'term_id');
                                 }
                             } else {
                                 // Meta
-                                $raw_values = $this->get_unique_meta_values($slug);
+                                $raw_values = $this->get_unique_meta_values($slug, $post_type);
                                 if ($slug === 'price' || $slug === 'per_month') {
                                     foreach ($raw_values as $p) $options[$p] = number_format((float)$p);
                                 } else {
