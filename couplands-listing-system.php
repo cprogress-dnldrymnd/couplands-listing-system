@@ -3360,11 +3360,15 @@ class Listing_System
     /**
      * Guarantees the listing grid never shows "No results".
      *
-     * If the fully-filtered query returns zero posts, filters are progressively
-     * relaxed until at least one post matches: secondary meta filters are dropped
-     * first (from the most recently applied), then taxonomy filters. The base
-     * "Listing" category constraint (tax_query index 0) is always preserved so we
-     * only ever fall back to other valid listings.
+     * If the fully-filtered query returns zero posts, SECONDARY filters are
+     * progressively relaxed until at least one post matches: meta filters are
+     * dropped first (from the most recently applied), then secondary taxonomy
+     * filters.
+     *
+     * Two constraints are NEVER relaxed, so results always stay accurate:
+     *   - the base "Listing" category (tax_query index 0), and
+     *   - the primary "listing-make-model" (Make/Model) selection — we must never
+     *     show a different make than the one the user selected.
      *
      * @param array $args The fully-built WP_Query arguments.
      * @return array Arguments guaranteed to return at least one post (where possible).
@@ -3387,10 +3391,19 @@ class Listing_System
                 }
             }
 
-            // 2. Then relax taxonomy filters, but never the base "Listing" category (index 0).
+            // 2. Then relax SECONDARY taxonomy filters. Never the base "Listing"
+            //    category (index 0), and never the Make/Model selection.
             if (!empty($args['tax_query'])) {
-                $tax_keys = array_filter(array_keys($args['tax_query']), function ($k) {
-                    return is_int($k) && $k !== 0;
+                $tax_keys = array_filter(array_keys($args['tax_query']), function ($k) use ($args) {
+                    if (!is_int($k) || $k === 0) {
+                        return false;
+                    }
+                    $clause = $args['tax_query'][$k];
+                    // Protect the primary Make/Model selection from relaxation.
+                    if (is_array($clause) && isset($clause['taxonomy']) && $clause['taxonomy'] === 'listing-make-model') {
+                        return false;
+                    }
+                    return true;
                 });
                 if (!empty($tax_keys)) {
                     unset($args['tax_query'][max($tax_keys)]);
@@ -3398,7 +3411,7 @@ class Listing_System
                 }
             }
 
-            // Nothing left to relax beyond the base category — stop.
+            // Nothing left to relax beyond the protected constraints — stop.
             break;
         }
 
@@ -3549,7 +3562,9 @@ class Listing_System
 
         // --- Guarantee Results: never show "No results" ---
         // If the strict filter combination matches nothing, progressively relax the
-        // filters (keeping the base "Listing" category) until something matches.
+        // SECONDARY filters until something matches. The base "Listing" category AND
+        // the selected Make/Model are always preserved, so the results shown always
+        // match the make the user picked (never a different make).
         // Facets, totals, and HTML below all use these effective args so the UI stays
         // consistent with what's actually displayed.
         $args = $this->get_args_with_guaranteed_results($args);
@@ -3559,6 +3574,7 @@ class Listing_System
         // We only calculate facets on the first page load or filter change (paged = 1).
         $available = [
             'models' => [],
+            'makes'  => [],
         ];
 
         // Initialize available arrays
@@ -3617,9 +3633,47 @@ class Listing_System
                 wp_reset_postdata();
             }
 
-            // Deduplicate and re-index
+            // --- Make availability (faceted independently of the Make selection) ---
+            // To know which MAKES would still return results, we apply every OTHER
+            // active filter but DROP the Make/Model constraint itself. Makes not in
+            // this list are disabled in the dropdown so the user can never pick a
+            // make that yields zero results under the current filters.
+            $make_facet_args = $args;
+            $make_facet_args['posts_per_page'] = -1;
+            $make_facet_args['fields'] = 'ids';
+            unset($make_facet_args['paged']);
+
+            if (!empty($make_facet_args['tax_query'])) {
+                foreach ($make_facet_args['tax_query'] as $k => $clause) {
+                    if (is_array($clause) && isset($clause['taxonomy']) && $clause['taxonomy'] === 'listing-make-model') {
+                        unset($make_facet_args['tax_query'][$k]);
+                    }
+                }
+            }
+
+            $make_query = new WP_Query($make_facet_args);
+            $make_slugs = [];
+            foreach ($make_query->posts as $pid) {
+                $terms = get_the_terms($pid, 'listing-make-model');
+                if (!$terms || is_wp_error($terms)) continue;
+                foreach ($terms as $term) {
+                    // Resolve each assigned term to its top-level Make slug.
+                    if ($term->parent == 0) {
+                        $make_slugs[$term->slug] = true;
+                    } else {
+                        $parent = get_term($term->parent, 'listing-make-model');
+                        if ($parent && !is_wp_error($parent)) {
+                            $make_slugs[$parent->slug] = true;
+                        }
+                    }
+                }
+            }
+            wp_reset_postdata();
+            $available['makes'] = array_keys($make_slugs);
+
+            // Deduplicate and re-index (skip slug-keyed maps)
             foreach (array_keys($available) as $k) {
-                if ($k === 'models') continue;
+                if ($k === 'models' || $k === 'makes') continue;
                 $available[$k] = array_values(array_unique(array_filter($available[$k])));
             }
         }
@@ -4091,6 +4145,21 @@ class Listing_System
                  * * @param {Object} facets JSON object containing populated filter values from the database.
                  */
                 function updateFilters(facets) {
+
+                    // 0. Disable Makes that would return no results under the other
+                    //    active filters. The currently-selected make is left enabled
+                    //    so the user can always see/change their own selection.
+                    const $makeSelect = $('#filter-make');
+                    if ($makeSelect.length && Array.isArray(facets.makes)) {
+                        const availableMakes = facets.makes.map(String);
+                        const selectedMake = String($makeSelect.val() || '');
+                        $makeSelect.find('option').each(function() {
+                            const val = $(this).val();
+                            if (val === "") return; // Skip placeholder
+                            const enabled = availableMakes.includes(val) || val === selectedMake;
+                            $(this).prop('disabled', !enabled);
+                        });
+                    }
 
                     // 1. Update Models (Dependent Logic)
                     const $modelSelect = $('#filter-model');
