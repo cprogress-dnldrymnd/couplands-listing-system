@@ -4111,11 +4111,43 @@ class Listing_System
                 });
 
                 /**
+                 * Reflects the current filter selection in the browser URL
+                 * (e.g. /?condition=New&make=coachman) so it is shareable and
+                 * survives a page reload. Uses replaceState so filtering does not
+                 * spam the browser history.
+                 */
+                function syncUrl() {
+                    const params = new URLSearchParams();
+                    const fd = new FormData($form[0]);
+
+                    fd.forEach(function(value, key) {
+                        if (key === 'post_type') return;          // page-determined, keep out of URL
+                        if (value === '' || value === null) return; // skip empty selections
+                        params.append(key, value);
+                    });
+
+                    // Include the active sort, if any.
+                    if ($('.listing-sort-dropdown').length) {
+                        const sortVal = $('.listing-sort-dropdown').first().val();
+                        if (sortVal) params.append('sort_by', sortVal);
+                    }
+
+                    const qs = params.toString();
+                    const newUrl = window.location.pathname + (qs ? '?' + qs : '');
+                    window.history.replaceState(null, '', newUrl);
+                }
+
+                /**
                  * Executes the AJAX request to fetch and render listings based on active filters.
                  *
                  * @param {boolean} isLoadMore Dictates whether to append to the DOM or replace entirely.
                  */
                 function fetchCaravans(isLoadMore) {
+                    // Keep the URL in sync on filter/sort changes (not on Load More paging).
+                    if (!isLoadMore) {
+                        syncUrl();
+                    }
+
                     $resultContainer.addClass('caravan-loader');
                     var formData = new FormData($form[0]);
                     formData.append('action', 'filter_caravans');
