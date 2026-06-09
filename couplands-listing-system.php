@@ -3418,6 +3418,45 @@ class Listing_System
         return $args;
     }
 
+    /**
+     * Builds a -1 / ids-only WP_Query arg set for faceting, dropping the
+     * constraints whose taxonomy or meta key matches the given exclusions.
+     *
+     * Excluding a filter's OWN constraint lets us compute which of its values
+     * would still return results — so the user can freely switch between values
+     * of the same filter without first resetting it to the default option.
+     *
+     * @param array $args               The effective (relaxed) query args.
+     * @param array $exclude_taxonomies Taxonomy slugs whose clauses to drop.
+     * @param array $exclude_meta_keys  Meta keys whose clauses to drop.
+     * @return array Facet query args.
+     */
+    private function build_facet_args($args, $exclude_taxonomies = [], $exclude_meta_keys = [])
+    {
+        $facet = $args;
+        $facet['posts_per_page'] = -1;
+        $facet['fields'] = 'ids';
+        unset($facet['paged']);
+
+        if (!empty($facet['tax_query']) && !empty($exclude_taxonomies)) {
+            foreach ($facet['tax_query'] as $k => $clause) {
+                if (is_array($clause) && isset($clause['taxonomy']) && in_array($clause['taxonomy'], $exclude_taxonomies, true)) {
+                    unset($facet['tax_query'][$k]);
+                }
+            }
+        }
+
+        if (!empty($facet['meta_query']) && !empty($exclude_meta_keys)) {
+            foreach ($facet['meta_query'] as $k => $clause) {
+                if (is_array($clause) && isset($clause['key']) && in_array($clause['key'], $exclude_meta_keys, true)) {
+                    unset($facet['meta_query'][$k]);
+                }
+            }
+        }
+
+        return $facet;
+    }
+
     public function ajax_filter_caravans()
     {
         $post_type = isset($_POST['post_type']) ? sanitize_text_field($_POST['post_type']) : 'caravan';
@@ -3569,9 +3608,11 @@ class Listing_System
         // consistent with what's actually displayed.
         $args = $this->get_args_with_guaranteed_results($args);
 
-        // --- Calculate Facets (Correctly) ---
-        // If we only query 12 items, facets will be incomplete.
+        // --- Calculate Facets (per-field, excluding each field's own selection) ---
         // We only calculate facets on the first page load or filter change (paged = 1).
+        // Each filter's available values are computed with every OTHER active filter
+        // applied but WITHOUT its own current selection, so the user can switch
+        // between values of the same filter without resetting it to the default first.
         $available = [
             'models' => [],
             'makes'  => [],
@@ -3583,93 +3624,87 @@ class Listing_System
             $available[$input_name] = [];
         }
 
-        // We run a separate query for facets if this is page 1, so the user sees all available options
         if ($paged === 1) {
-            $facet_args = $args;
-            $facet_args['posts_per_page'] = -1; // Get all matching posts
-            unset($facet_args['paged']);
-
-            $facet_query = new WP_Query($facet_args);
-
-            if ($facet_query->have_posts()) {
-                while ($facet_query->have_posts()) {
-                    $facet_query->the_post();
-                    $id = get_the_ID();
-
-                    foreach ($config as $filter) {
-                        $slug = $filter['slug'];
-                        $type = $filter['type'];
-                        $input_name = !empty($filter['custom_name']) ? $filter['custom_name'] : $slug;
-
-                        if ($slug === 'listing-make-model') {
-                            $terms = get_the_terms($id, 'listing-make-model');
-                            if ($terms && !is_wp_error($terms)) {
-                                foreach ($terms as $term) {
-                                    // UPDATED: Populate models array using SLUG as key
-                                    if ($term->parent != 0) $available['models'][$term->slug] = $term->name;
-                                }
-                            }
-                            continue;
-                        }
-
-                        if ($type === 'taxonomy') {
-                            $terms = get_the_terms($id, $slug);
-                            if ($terms && !is_wp_error($terms)) {
-                                foreach ($terms as $t) $available[$input_name][] = $t->term_id;
-                            }
-                        } else {
-                            // Meta
-                            $val = get_post_meta($id, $slug, true);
-                            if (!empty($val)) {
-                                if (is_array($val)) {
-                                    $available[$input_name] = array_merge($available[$input_name], $val);
-                                } else {
-                                    $available[$input_name][] = $val;
-                                }
-                            }
-                        }
-                    }
-                }
-                wp_reset_postdata();
-            }
-
-            // --- Make availability (faceted independently of the Make selection) ---
-            // To know which MAKES would still return results, we apply every OTHER
-            // active filter but DROP the Make/Model constraint itself. Makes not in
-            // this list are disabled in the dropdown so the user can never pick a
-            // make that yields zero results under the current filters.
-            $make_facet_args = $args;
-            $make_facet_args['posts_per_page'] = -1;
-            $make_facet_args['fields'] = 'ids';
-            unset($make_facet_args['paged']);
-
-            if (!empty($make_facet_args['tax_query'])) {
-                foreach ($make_facet_args['tax_query'] as $k => $clause) {
-                    if (is_array($clause) && isset($clause['taxonomy']) && $clause['taxonomy'] === 'listing-make-model') {
-                        unset($make_facet_args['tax_query'][$k]);
-                    }
-                }
-            }
-
-            $make_query = new WP_Query($make_facet_args);
+            // --- MAKES: drop the whole Make/Model constraint, so every make that
+            //     still has results under the OTHER filters stays selectable. ---
+            $make_args  = $this->build_facet_args($args, ['listing-make-model']);
+            $make_query = new WP_Query($make_args);
             $make_slugs = [];
-            foreach ($make_query->posts as $pid) {
-                $terms = get_the_terms($pid, 'listing-make-model');
-                if (!$terms || is_wp_error($terms)) continue;
-                foreach ($terms as $term) {
-                    // Resolve each assigned term to its top-level Make slug.
-                    if ($term->parent == 0) {
-                        $make_slugs[$term->slug] = true;
-                    } else {
-                        $parent = get_term($term->parent, 'listing-make-model');
-                        if ($parent && !is_wp_error($parent)) {
-                            $make_slugs[$parent->slug] = true;
+            if (!empty($make_query->posts)) {
+                $make_terms = wp_get_object_terms($make_query->posts, 'listing-make-model');
+                if (!is_wp_error($make_terms)) {
+                    foreach ($make_terms as $term) {
+                        // Resolve each assigned term to its top-level Make slug.
+                        if ($term->parent == 0) {
+                            $make_slugs[$term->slug] = true;
+                        } else {
+                            $parent = get_term($term->parent, 'listing-make-model');
+                            if ($parent && !is_wp_error($parent)) {
+                                $make_slugs[$parent->slug] = true;
+                            }
                         }
                     }
                 }
             }
-            wp_reset_postdata();
             $available['makes'] = array_keys($make_slugs);
+
+            // --- MODELS: keep the selected Make but drop the specific Model, so the
+            //     dropdown lists every model of the chosen make. Re-picking another
+            //     model no longer hides the rest. ---
+            $selected_make = !empty($_POST['make']) ? sanitize_text_field($_POST['make']) : '';
+            if ($selected_make) {
+                $model_args = $this->build_facet_args($args, ['listing-make-model']);
+                $model_args['tax_query'][] = [
+                    'taxonomy'         => 'listing-make-model',
+                    'field'            => 'slug',
+                    'terms'            => $selected_make,
+                    'include_children' => true,
+                ];
+                $model_query = new WP_Query($model_args);
+                if (!empty($model_query->posts)) {
+                    $model_terms = wp_get_object_terms($model_query->posts, 'listing-make-model');
+                    if (!is_wp_error($model_terms)) {
+                        foreach ($model_terms as $term) {
+                            if ($term->parent != 0) $available['models'][$term->slug] = $term->name;
+                        }
+                    }
+                }
+            }
+
+            // --- Each configured filter: compute availability with its OWN
+            //     constraint removed, so its sibling values stay selectable. ---
+            foreach ($config as $filter) {
+                $slug = $filter['slug'];
+                $type = $filter['type'];
+                $input_name = !empty($filter['custom_name']) ? $filter['custom_name'] : $slug;
+
+                if ($slug === 'listing-make-model') continue; // handled above
+
+                if ($type === 'taxonomy') {
+                    $field_query = new WP_Query($this->build_facet_args($args, [$slug]));
+                    if (!empty($field_query->posts)) {
+                        $terms = wp_get_object_terms($field_query->posts, $slug);
+                        if (!is_wp_error($terms)) {
+                            foreach ($terms as $t) $available[$input_name][] = $t->term_id;
+                        }
+                    }
+                } else {
+                    $field_query = new WP_Query($this->build_facet_args($args, [], [$slug]));
+                    $ids = $field_query->posts;
+                    if (!empty($ids)) {
+                        update_meta_cache('post', $ids);
+                        foreach ($ids as $pid) {
+                            $val = get_post_meta($pid, $slug, true);
+                            if ($val === '' || $val === null) continue;
+                            if (is_array($val)) {
+                                $available[$input_name] = array_merge($available[$input_name], $val);
+                            } else {
+                                $available[$input_name][] = $val;
+                            }
+                        }
+                    }
+                }
+            }
 
             // Deduplicate and re-index (skip slug-keyed maps)
             foreach (array_keys($available) as $k) {
