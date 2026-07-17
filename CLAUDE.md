@@ -2,7 +2,7 @@
 
 WordPress plugin (v2.8.7) for Couplands — a caravan/motorhome/campervan dealership. Provides custom post types, AJAX filtering with faceted search, image galleries, shortcodes, and an admin settings UI.
 
-**Single file:** `couplands-listing-system.php` (all 4350 lines — no build step, no package.json, no tests).
+**Single file:** `couplands-listing-system.php` (all 4400+ lines — no build step, no package.json, no tests).
 
 ## External dependencies (not bundled)
 
@@ -41,7 +41,7 @@ new Listing_System();
 | Shortcode | Method | Notes |
 |---|---|---|
 | `[caravan_filter]` | `render_caravan_filter()` | Main filter sidebar/modal. Detects post type from page mapping. Outputs JS. |
-| `[listing_selection]` | `render_listing_selection()` | Vehicle type + New/Used radio form |
+| `[listing_selection]` | `render_listing_selection()` | Vehicle type + New/Used radio form. Vehicle type change navigates to that type's archive page (carrying `condition` in the URL) if it differs from the current page's type. Condition change triggers `cls:refetch` to update results live when a results grid is present, else falls back to the "Search all" submit. |
 | `[listing_sorting]` | `render_listing_sorting()` | Sort dropdown (price asc/desc, title asc/desc) |
 | `[listing_gallery is_archive="1"]` | `render_listing_gallery()` | Swiper + FancyBox gallery; archive mode shows 4 images |
 | `[listing_feature key="interior_features"]` | `render_listing_feature()` | Comma-separated meta → `<ul>` |

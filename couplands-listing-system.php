@@ -1342,14 +1342,54 @@ class Listing_System
                 var form = document.getElementById('<?php echo $form_id; ?>');
                 if (!form) return;
 
-                var radios = form.querySelectorAll('input[name="vehicle_type"]');
+                // The post type this archive page is currently showing.
+                var activeType = <?php echo json_encode($active_type); ?>;
 
-                radios.forEach(function(radio) {
+                var vehicleRadios = form.querySelectorAll('input[name="vehicle_type"]');
+                var conditionRadios = form.querySelectorAll('input[name="condition"]');
+
+                // True when the AJAX-filtered results grid is present (i.e. we are
+                // on a listing archive page and can update results in place).
+                function hasResultsGrid() {
+                    return document.getElementById('caravan-filter-form') &&
+                        document.getElementById('my-loop-grid-container');
+                }
+
+                function currentCondition() {
+                    var checked = form.querySelector('input[name="condition"]:checked');
+                    return checked ? checked.value : 'New';
+                }
+
+                vehicleRadios.forEach(function(radio) {
                     radio.addEventListener('change', function() {
-                        var newAction = this.getAttribute('archive_url');
-                        if (newAction) {
-                            form.action = newAction;
+                        var url = this.getAttribute('archive_url');
+                        // Keep the plain form submit working as a fallback.
+                        if (url) form.action = url;
+
+                        // A different vehicle type is a different post type, which
+                        // lives on its own archive page — navigate there straight
+                        // away, carrying the chosen condition across.
+                        if (url && this.value !== activeType) {
+                            var sep = url.indexOf('?') === -1 ? '?' : '&';
+                            window.location.href = url + sep + 'condition=' + encodeURIComponent(currentCondition());
                         }
+                    });
+                });
+
+                conditionRadios.forEach(function(radio) {
+                    radio.addEventListener('change', function() {
+                        // On an archive page, update the results live via AJAX so the
+                        // user doesn't have to press "Search all".
+                        if (hasResultsGrid() && window.jQuery) {
+                            var hidden = document.querySelector('#caravan-filter-form input[name="condition"]');
+                            if (hidden) {
+                                hidden.value = this.value;
+                                window.jQuery(document).trigger('cls:refetch');
+                                return;
+                            }
+                        }
+                        // Otherwise (e.g. a landing page with no results grid) leave
+                        // the "Search all" button to submit the form.
                     });
                 });
             });
@@ -4056,6 +4096,14 @@ class Listing_System
                     if ($(this).attr('name') === 'make') {
                         $('#filter-model').val(''); // Reset model if make changes
                     }
+                    currentPage = 1; // Reset page
+                    fetchCaravans(false);
+                });
+
+                // External refetch trigger — fired by the [listing_selection]
+                // control (New/Used) so its condition change updates the results
+                // in place instead of requiring a full-page "Search all" submit.
+                $(document).on('cls:refetch', function() {
                     currentPage = 1; // Reset page
                     fetchCaravans(false);
                 });
