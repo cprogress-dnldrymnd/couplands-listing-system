@@ -3930,6 +3930,35 @@ class Listing_System
                     width: calc(100% - 25px);
                 }
             }
+
+            /* Infinite Scroll Sentinel */
+            #listing-scroll-sentinel {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                min-height: 60px;
+                margin-top: 30px;
+            }
+
+            #listing-scroll-sentinel .cls-scroll-spinner {
+                display: none;
+                width: 28px;
+                height: 28px;
+                border: 3px solid #e2e4e7;
+                border-top-color: #333;
+                border-radius: 50%;
+                animation: cls-scroll-spin 0.8s linear infinite;
+            }
+
+            #listing-scroll-sentinel.is-loading .cls-scroll-spinner {
+                display: block;
+            }
+
+            @keyframes cls-scroll-spin {
+                to {
+                    transform: rotate(360deg);
+                }
+            }
         </style>
         <script>
             jQuery(document).ready(function($) {
@@ -3939,6 +3968,8 @@ class Listing_System
                 // NEW: State for pagination
                 let currentPage = 1;
                 let maxPages = 1;
+                let isFetching = false;
+                let scrollObserver = null;
 
                 // Active filters passed from PHP (Custom Names)
                 const activeFilters = <?php echo json_encode($filter_fields); ?>;
@@ -4063,15 +4094,6 @@ class Listing_System
                     fetchCaravans(false);
                 });
 
-                // NEW: Load More Click Handler
-                $(document).on('click', '#listing-load-more-btn', function(e) {
-                    e.preventDefault();
-                    if (currentPage < maxPages) {
-                        currentPage++;
-                        fetchCaravans(true);
-                    }
-                });
-
                 /**
                  * Modal UI State Controller
                  * Manages class toggling and body scroll locking for the filter view.
@@ -4144,14 +4166,27 @@ class Listing_System
                  * @param {boolean} skipUrlSync  Skip writing the URL (used on initial page load).
                  */
                 function fetchCaravans(isLoadMore, skipUrlSync) {
-                    // Keep the URL in sync on filter/sort changes (not on Load More
+                    // Guard against overlapping requests — the IntersectionObserver
+                    // can fire multiple times in quick succession while scrolling.
+                    if (isFetching) return;
+                    isFetching = true;
+
+                    // Keep the URL in sync on filter/sort changes (not on infinite-scroll
                     // paging, and not on the initial page load — otherwise the default
                     // hidden 'condition' would be written to the URL unprompted).
                     if (!isLoadMore && !skipUrlSync) {
                         syncUrl();
                     }
 
-                    $resultContainer.addClass('caravan-loader');
+                    // Only dim the whole grid when it's being replaced. For
+                    // infinite-scroll appends, show the spinner below the grid instead
+                    // so the cards already on screen stay fully visible.
+                    if (isLoadMore) {
+                        $('#listing-scroll-sentinel').addClass('is-loading');
+                    } else {
+                        $resultContainer.addClass('caravan-loader');
+                    }
+
                     var formData = new FormData($form[0]);
                     formData.append('action', 'filter_caravans');
                     formData.append('paged', currentPage); // Send current page
@@ -4199,12 +4234,12 @@ class Listing_System
                                     updateFilters(response.data.facets);
                                 }
 
-                                // Update Max Pages and Button Visibility
+                                // Update Max Pages and sentinel visibility
                                 if (response.data.max_pages !== undefined) {
                                     maxPages = response.data.max_pages;
                                 }
 
-                                updateLoadMoreButton();
+                                updateInfiniteScroll();
 
                                 // Trigger height matching immediately upon DOM injection
                                 matchHeightsGrouped();
@@ -4212,32 +4247,60 @@ class Listing_System
                                 // Failsafe execution for layout recalculation once sub-resources (like images) resolve
                                 setTimeout(matchHeightsGrouped, 300);
                             }
-                            $resultContainer.removeClass('caravan-loader');
                         },
                         error: function() {
+                            // Revert the page bump so a later scroll can retry the same page.
+                            if (isLoadMore) {
+                                currentPage--;
+                            }
+                        },
+                        complete: function() {
+                            isFetching = false;
                             $resultContainer.removeClass('caravan-loader');
+                            $('#listing-scroll-sentinel').removeClass('is-loading');
                         }
                     });
                 }
 
                 /**
-                 * Evaluates the current pagination state and injects/toggles the Load More button.
+                 * Ensures the infinite-scroll sentinel exists below the result grid,
+                 * toggles its visibility based on remaining pages, and (re-)observes
+                 * it so scrolling near the bottom triggers the next page load.
                  */
-                function updateLoadMoreButton() {
-                    const btnId = 'listing-load-more-btn';
-                    let $btn = $('#' + btnId);
+                function updateInfiniteScroll() {
+                    if (typeof IntersectionObserver === 'undefined') return;
 
-                    // If page 1 and no button exists, inject it AFTER result container
-                    if ($btn.length === 0) {
-                        $resultContainer.after('<div class="load-more-wrapper" style="text-align:center; margin-top:30px;"><button id="' + btnId + '" class="button" style="padding:10px 30px; cursor:pointer;">Load More</button></div>');
-                        $btn = $('#' + btnId);
+                    let $sentinel = $('#listing-scroll-sentinel');
+
+                    if ($sentinel.length === 0) {
+                        $resultContainer.after('<div id="listing-scroll-sentinel"><div class="cls-scroll-spinner"></div></div>');
+                        $sentinel = $('#listing-scroll-sentinel');
                     }
 
-                    if (currentPage >= maxPages) {
-                        $btn.parent().hide();
+                    const hasMore = currentPage < maxPages;
+
+                    if (!scrollObserver) {
+                        scrollObserver = new IntersectionObserver(function(entries) {
+                            entries.forEach(function(entry) {
+                                if (entry.isIntersecting && !isFetching && currentPage < maxPages) {
+                                    currentPage++;
+                                    fetchCaravans(true);
+                                }
+                            });
+                        }, { rootMargin: '400px' });
+                    }
+
+                    // Re-observe on every update: IntersectionObserver only fires on
+                    // intersection transitions, so if the sentinel is still on screen
+                    // after appending a short page, unobserve/observe forces a fresh
+                    // callback to keep the chain going instead of stalling.
+                    scrollObserver.unobserve($sentinel[0]);
+
+                    if (hasMore) {
+                        $sentinel.show();
+                        scrollObserver.observe($sentinel[0]);
                     } else {
-                        $btn.parent().show();
-                        $btn.text('Load More'); // Reset text if needed
+                        $sentinel.hide();
                     }
                 }
 
