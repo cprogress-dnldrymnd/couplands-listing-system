@@ -4100,7 +4100,7 @@ class Listing_System
                     fetchCaravans(false);
                 });
 
-                // External refetch trigger — fired by the [listing_selection]
+                // External refetch trigger — fired by the listing_selection
                 // control (New/Used) so its condition change updates the results
                 // in place instead of requiring a full-page "Search all" submit.
                 $(document).on('cls:refetch', function() {
