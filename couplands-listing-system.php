@@ -1120,7 +1120,7 @@ class Listing_System
                                 $archive_url = $this->get_listing_archive_link($pt_slug);
                                 $archive_link = add_query_arg(
                                     array(
-                                        'make' => $term->term_id,
+                                        'make' => $term->slug,
                                         'vehicle_year' => $target_year
                                     ),
                                     $archive_url

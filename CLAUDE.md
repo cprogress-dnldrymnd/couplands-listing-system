@@ -132,3 +132,7 @@ ACF field groups pulled for meta fields admin tab: IDs `541`, `2642`, `2443`.
 ## Mobile filter modal
 
 The `[caravan_filter]` container doubles as a slide-in drawer on ≤1024px viewports. It is shown/hidden by toggling `.is-active` on `#cls-filter-modal-wrapper`. The `[listing_filter_mobile]` shortcode renders the trigger button. Close triggers have class `cls-filter-modal-close-trigger`.
+
+## Gotchas
+
+Never write a literal `[shortcode_name]` (brackets included) inside a JS/PHP comment or string that a `render_*()` method echoes — this output passes through `do_shortcode()` and WordPress's shortcode regex will match and strip it, corrupting the surrounding `<script>` tag. Refer to other shortcodes by name only, without brackets, in comments.
