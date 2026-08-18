@@ -214,6 +214,10 @@ class Listing_System
         // 2. Save the Data
         add_action('save_post', array($this, 'save_page_filter_builder_meta'));
 
+        // 3. Per-listing pricing options (e.g., hide WAS price)
+        add_action('add_meta_boxes', array($this, 'add_hide_was_price_meta_box'));
+        add_action('save_post', array($this, 'save_hide_was_price_meta'), 20);
+
         // --- ADMIN: Register Settings ---
         add_action('admin_init', array($this, 'register_plugin_settings'));
 
@@ -1414,6 +1418,7 @@ class Listing_System
         // Retrieve values
         $price = function_exists('get_field') ? get_field('price', $post_id) : get_post_meta($post_id, 'price', true);
         $rrp   = function_exists('get_field') ? get_field('rrp', $post_id) : get_post_meta($post_id, 'rrp', true);
+        $hide_was_price = (bool) get_post_meta($post_id, 'hide_was_price', true);
         
         // 1. Clean the strings to ensure they are valid floats
         $clean_price = (float) preg_replace('/[^\d.]/', '', (string) $price);
@@ -1468,9 +1473,11 @@ class Listing_System
                 <span class="value"><?= esc_html($fmt_price); ?></span>
                 
                 <?php if ($is_sale) : ?>
-                    <span class="rrp-price" style="display: block; font-size: 14px; color: #888; text-decoration: line-through; margin-top: 4px; line-height: 1;">
-                        Was <?= esc_html($fmt_rrp); ?>
-                    </span>
+                    <?php if (!$hide_was_price) : ?>
+                        <span class="rrp-price" style="display: block; font-size: 14px; color: #888; text-decoration: line-through; margin-top: 4px; line-height: 1;">
+                            Was <?= esc_html($fmt_rrp); ?>
+                        </span>
+                    <?php endif; ?>
                 <?php endif; ?>
             </div>
             <?php if ($fmt_month) { ?>
@@ -2792,6 +2799,77 @@ class Listing_System
             'normal',
             'high'
         );
+    }
+
+    /**
+     * Adds a per-listing checkbox to hide the "Was £..." price line.
+     */
+    public function add_hide_was_price_meta_box()
+    {
+        $post_types = array('caravan', 'motorhome', 'campervan', 'product');
+
+        foreach ($post_types as $post_type) {
+            add_meta_box(
+                'couplands_hide_was_price',
+                'Pricing display options',
+                array($this, 'render_hide_was_price_meta_box'),
+                $post_type,
+                'side',
+                'default'
+            );
+        }
+    }
+
+    /**
+     * Renders the "Hide WAS price" checkbox meta box.
+     * @param WP_Post $post
+     */
+    public function render_hide_was_price_meta_box($post)
+    {
+        $post_id = $post->ID;
+        $hide_was_price = (bool) get_post_meta($post_id, 'hide_was_price', true);
+
+        wp_nonce_field('save_hide_was_price_meta', 'hide_was_price_nonce');
+        ?>
+        <p>
+            <label>
+                <input type="checkbox" name="hide_was_price" value="1" <?php checked($hide_was_price); ?> />
+                Hide "Was £..." price
+            </label>
+        </p>
+        <?php
+    }
+
+    /**
+     * Saves the per-listing "Hide WAS price" checkbox.
+     * @param int $post_id
+     */
+    public function save_hide_was_price_meta($post_id)
+    {
+        // Only run if this meta box is present in the submitted form.
+        if (!isset($_POST['hide_was_price_nonce']) || !wp_verify_nonce($_POST['hide_was_price_nonce'], 'save_hide_was_price_meta')) {
+            return;
+        }
+
+        if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) {
+            return;
+        }
+
+        if (!current_user_can('edit_post', $post_id)) {
+            return;
+        }
+
+        $post_type = get_post_type($post_id);
+        if (!in_array($post_type, array('caravan', 'motorhome', 'campervan', 'product'), true)) {
+            return;
+        }
+
+        $hide = isset($_POST['hide_was_price']) ? '1' : '';
+        if ($hide) {
+            update_post_meta($post_id, 'hide_was_price', $hide);
+        } else {
+            delete_post_meta($post_id, 'hide_was_price');
+        }
     }
 
     /**
