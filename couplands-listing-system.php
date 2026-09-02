@@ -3,7 +3,7 @@
 /**
  * Plugin Name: Couplands Listing System
  * Description: Advanced filtering system for Caravans, Motorhomes, and Products with AJAX support, CSV Importer, Listing Gallery, and Shortcodes.
- * Version: 2.8.7
+ * Version: 2.8.8
  * Author: Digitally Disruptive - Donald Raymundo
  * Author URI: https://digitallydisruptive.co.uk/
  * Text Domain: couplands-listing
@@ -149,6 +149,9 @@ class Listing_Registrar
         if (!term_exists('Listing', 'listing-category')) {
             wp_insert_term('Listing', 'listing-category');
         }
+        if (!term_exists('Hire', 'listing-category')) {
+            wp_insert_term('Hire', 'listing-category');
+        }
     }
 }
 
@@ -175,6 +178,7 @@ class Listing_System
         add_shortcode('location_details', array($this, 'render_location_details'));
         add_shortcode('listing_selection', array($this, 'render_listing_selection'));
         add_shortcode('pricing', array($this, 'render_pricing'));
+        add_shortcode('price_per_night', array($this, 'render_price_per_night'));
         add_shortcode('is_sale', array($this, 'render_is_sale'));
         add_shortcode('listing_gallery', array($this, 'render_listing_gallery'));
         add_shortcode('listing_feature', array($this, 'render_listing_feature'));
@@ -217,6 +221,10 @@ class Listing_System
         // 3. Per-listing pricing options (e.g., hide WAS price)
         add_action('add_meta_boxes', array($this, 'add_hide_was_price_meta_box'));
         add_action('save_post', array($this, 'save_hide_was_price_meta'), 20);
+
+        // 4. Hire pricing (price per night)
+        add_action('add_meta_boxes', array($this, 'add_price_per_night_meta_box'));
+        add_action('save_post', array($this, 'save_price_per_night_meta'), 20);
 
         // --- ADMIN: Register Settings ---
         add_action('admin_init', array($this, 'register_plugin_settings'));
@@ -1579,6 +1587,48 @@ class Listing_System
     }
 
     /**
+     * Shortcode: Hire price per night
+     * price_per_night
+     * Only outputs when the listing has listing-category = Hire.
+     *
+     * @param array $atts Shortcode attributes.
+     * @return string Pricing HTML or empty string.
+     */
+    public function render_price_per_night($atts)
+    {
+        $post_id = get_the_ID();
+
+        if (!$post_id) {
+            return '';
+        }
+
+        if (!has_term('hire', 'listing-category', $post_id)) {
+            return '';
+        }
+
+        $price_raw = function_exists('get_field') ? get_field('price_per_night', $post_id) : get_post_meta($post_id, 'price_per_night', true);
+        $clean_price = (float) preg_replace('/[^\d.]/', '', (string) $price_raw);
+
+        if ($clean_price <= 0) {
+            return '';
+        }
+
+        $fmt_price = function_exists('price_format') ? price_format($price_raw) : '£' . number_format($clean_price, (floatval($clean_price) == intval($clean_price)) ? 0 : 2);
+
+        ob_start();
+        ?>
+        <div class="pricing">
+            <div class="pricing-box">
+                <span class="prefix-suffix">From</span>
+                <span class="value"><?= esc_html($fmt_price); ?></span>
+                <span class="prefix-suffix">per <br>night</span>
+            </div>
+        </div>
+        <?php
+        return ob_get_clean();
+    }
+
+    /**
      * Shortcode: Front-end Listing Gallery
      * [listing_gallery is_archive="1"]
      * * @param array $atts Shortcode attributes.
@@ -2924,6 +2974,74 @@ class Listing_System
             update_post_meta($post_id, 'hide_was_price', $hide);
         } else {
             delete_post_meta($post_id, 'hide_was_price');
+        }
+    }
+
+    /**
+     * Adds a per-listing price per night field for Hire listings.
+     */
+    public function add_price_per_night_meta_box()
+    {
+        $post_types = array('caravan', 'motorhome', 'campervan');
+
+        foreach ($post_types as $post_type) {
+            add_meta_box(
+                'couplands_price_per_night',
+                'Hire pricing',
+                array($this, 'render_price_per_night_meta_box'),
+                $post_type,
+                'side',
+                'default'
+            );
+        }
+    }
+
+    /**
+     * Renders the price per night meta box.
+     * @param WP_Post $post
+     */
+    public function render_price_per_night_meta_box($post)
+    {
+        $post_id = $post->ID;
+        $price_per_night = get_post_meta($post_id, 'price_per_night', true);
+
+        wp_nonce_field('save_price_per_night_meta', 'price_per_night_nonce');
+        ?>
+        <p>
+            <label for="price_per_night">Price per night (£)</label>
+            <input type="number" step="0.01" min="0" id="price_per_night" name="price_per_night" value="<?php echo esc_attr($price_per_night); ?>" class="widefat" />
+        </p>
+        <?php
+    }
+
+    /**
+     * Saves the per-listing price per night field.
+     * @param int $post_id
+     */
+    public function save_price_per_night_meta($post_id)
+    {
+        if (!isset($_POST['price_per_night_nonce']) || !wp_verify_nonce($_POST['price_per_night_nonce'], 'save_price_per_night_meta')) {
+            return;
+        }
+
+        if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) {
+            return;
+        }
+
+        if (!current_user_can('edit_post', $post_id)) {
+            return;
+        }
+
+        $post_type = get_post_type($post_id);
+        if (!in_array($post_type, array('caravan', 'motorhome', 'campervan'), true)) {
+            return;
+        }
+
+        if (isset($_POST['price_per_night']) && $_POST['price_per_night'] !== '') {
+            $price = (float) preg_replace('/[^\d.]/', '', sanitize_text_field($_POST['price_per_night']));
+            update_post_meta($post_id, 'price_per_night', $price);
+        } else {
+            delete_post_meta($post_id, 'price_per_night');
         }
     }
 
