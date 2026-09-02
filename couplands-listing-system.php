@@ -541,6 +541,43 @@ class Listing_System
        ========================================================================== */
 
     /**
+     * Resolve Make and Model names from the listing-make-model taxonomy.
+     *
+     * @param int $post_id Post ID.
+     * @return array{make: string, model: string}
+     */
+    private function get_listing_make_model_terms($post_id)
+    {
+        $make  = '';
+        $model = '';
+
+        $terms = wp_get_post_terms($post_id, 'listing-make-model');
+        if (is_wp_error($terms) || empty($terms)) {
+            return ['make' => $make, 'model' => $model];
+        }
+
+        foreach ($terms as $term) {
+            if ((int) $term->parent === 0) {
+                if ($make === '') {
+                    $make = $term->name;
+                }
+            } else {
+                if ($model === '') {
+                    $model = $term->name;
+                }
+                if ($make === '') {
+                    $parent = get_term($term->parent, 'listing-make-model');
+                    if ($parent && !is_wp_error($parent)) {
+                        $make = $parent->name;
+                    }
+                }
+            }
+        }
+
+        return ['make' => $make, 'model' => $model];
+    }
+
+    /**
      * Generates a 3-column data grid populated by the configured backend ACF fields.
      * Incorporates custom styling to precisely match the target design interface.
      * Features logic for overriding default labels and formatting prices dynamically.
@@ -580,6 +617,24 @@ class Listing_System
 ?>
         <div class="couplands-meta-grid">
             <?php
+            $make_model = $this->get_listing_make_model_terms($post_id);
+            if (!empty($make_model['make'])) :
+            ?>
+                <div class="meta-grid-item">
+                    <div class="meta-grid-label"><?php echo esc_html('Make'); ?></div>
+                    <div class="meta-grid-value"><?php echo esc_html($make_model['make']); ?></div>
+                </div>
+            <?php
+            endif;
+            if (!empty($make_model['model'])) :
+            ?>
+                <div class="meta-grid-item">
+                    <div class="meta-grid-label"><?php echo esc_html('Model'); ?></div>
+                    <div class="meta-grid-value"><?php echo esc_html($make_model['model']); ?></div>
+                </div>
+            <?php
+            endif;
+
             foreach ($saved_config as $field_conf) {
                 if (empty($field_conf['visible'])) continue;
 
