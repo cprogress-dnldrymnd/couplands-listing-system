@@ -699,15 +699,15 @@ class Listing_System
         <style>
             .couplands-meta-grid {
                 display: grid;
-                grid-template-columns: repeat(3, 1fr);
-                column-gap: 20px;
+                grid-template-columns: repeat(4, 1fr);
+                column-gap: 10px;
             }
 
             .meta-grid-item {
                 display: flex;
                 flex-direction: column;
                 border-bottom: 1px solid #D3DAE6;
-                padding: 18px 0;
+                padding: 10px 0;
             }
 
             .meta-grid-label {
