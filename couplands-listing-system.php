@@ -713,7 +713,6 @@ class Listing_System
             .meta-grid-label {
                 font-size: 14px;
                 color: #5d6168;
-                margin-bottom: 8px;
             }
 
             .meta-grid-value {
