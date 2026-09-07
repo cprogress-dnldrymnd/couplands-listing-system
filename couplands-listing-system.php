@@ -1476,22 +1476,22 @@ class Listing_System
     {
         ob_start();
         $post_id = get_the_ID();
-        
+
         // Retrieve values
         $price = function_exists('get_field') ? get_field('price', $post_id) : get_post_meta($post_id, 'price', true);
         $rrp   = function_exists('get_field') ? get_field('rrp', $post_id) : get_post_meta($post_id, 'rrp', true);
         $hide_was_price = (bool) get_post_meta($post_id, 'hide_was_price', true);
-        
+
         // 1. Clean the strings to ensure they are valid floats
         $clean_price = (float) preg_replace('/[^\d.]/', '', (string) $price);
         $clean_rrp   = (float) preg_replace('/[^\d.]/', '', (string) $rrp);
-        
+
         $per_month = '';
         $is_sale   = false;
 
         // 2. Perform the calculation if a valid price exists
         if ($clean_price > 0) {
-            
+
             // Check if item is on sale
             if ($clean_rrp > 0 && $clean_price < $clean_rrp) {
                 $is_sale = true;
@@ -1499,10 +1499,10 @@ class Listing_System
 
             $deposit_percentage = 0.20; // 20% deposit
             $term_months        = 120;  // 120 month term
-            
+
             // Update APR based on the provided finance example
             $apr = 0.085; // 8.5% APR
-            
+
             $deposit   = $clean_price * $deposit_percentage;
             $principal = $clean_price - $deposit;
 
@@ -1510,7 +1510,7 @@ class Listing_System
                 // In the UK, APR is treated as an Effective Annual Rate (EAR).
                 // Calculate the exact monthly interest rate from the annual APR.
                 $monthly_rate = pow(1 + $apr, 1 / 12) - 1;
-                
+
                 // Standard Amortized loan formula using the effective monthly rate
                 $per_month = $principal * ($monthly_rate * pow(1 + $monthly_rate, $term_months)) / (pow(1 + $monthly_rate, $term_months) - 1);
             } else {
@@ -1522,7 +1522,7 @@ class Listing_System
         // 3. Format the outputs safely
         $fmt_price = function_exists('price_format') ? price_format($price) : '£' . number_format($clean_price, 2);
         $fmt_rrp   = function_exists('price_format') ? price_format($rrp) : '£' . number_format($clean_rrp, 2);
-        
+
         // Format calculated monthly price
         $fmt_month = '';
         if (!empty($per_month)) {
@@ -1533,7 +1533,7 @@ class Listing_System
             <div class="pricing-box">
                 <span class="prefix-suffix">Only</span>
                 <span class="value"><?= esc_html($fmt_price); ?></span>
-                
+
                 <?php if ($is_sale) : ?>
                     <?php if (!$hide_was_price) : ?>
                         <span class="rrp-price" style="display: block; font-size: 14px; color: #888; text-decoration: line-through; margin-top: 4px; line-height: 1;">
@@ -1550,7 +1550,7 @@ class Listing_System
                 </div>
             <?php } ?>
         </div>
-        <?php
+    <?php
         return ob_get_clean();
     }
     /**
@@ -1615,7 +1615,7 @@ class Listing_System
         $fmt_price = function_exists('price_format') ? price_format($price_raw) : '£' . number_format($clean_price, (floatval($clean_price) == intval($clean_price)) ? 0 : 2);
 
         ob_start();
-        ?>
+    ?>
         <div class="pricing">
             <div class="pricing-box">
                 <span class="prefix-suffix">From</span>
@@ -1990,6 +1990,10 @@ class Listing_System
                 .open-gallery {
                     cursor: zoom-in;
                     display: block;
+                }
+
+                .open-gallery.open-gallery {
+                    display: flex;
                 }
 
                 /* New Tags Navigation Styling */
@@ -2934,14 +2938,14 @@ class Listing_System
         $hide_was_price = (bool) get_post_meta($post_id, 'hide_was_price', true);
 
         wp_nonce_field('save_hide_was_price_meta', 'hide_was_price_nonce');
-        ?>
+    ?>
         <p>
             <label>
                 <input type="checkbox" name="hide_was_price" value="1" <?php checked($hide_was_price); ?> />
                 Hide "Was £..." price
             </label>
         </p>
-        <?php
+    <?php
     }
 
     /**
@@ -3005,12 +3009,12 @@ class Listing_System
         $price_per_night = get_post_meta($post_id, 'price_per_night', true);
 
         wp_nonce_field('save_price_per_night_meta', 'price_per_night_nonce');
-        ?>
+    ?>
         <p>
             <label for="price_per_night">Price per night (£)</label>
             <input type="number" step="0.01" min="0" id="price_per_night" name="price_per_night" value="<?php echo esc_attr($price_per_night); ?>" class="widefat" />
         </p>
-        <?php
+    <?php
     }
 
     /**
@@ -4441,7 +4445,7 @@ class Listing_System
                     const fd = new FormData($form[0]);
 
                     fd.forEach(function(value, key) {
-                        if (key === 'post_type') return;          // page-determined, keep out of URL
+                        if (key === 'post_type') return; // page-determined, keep out of URL
                         if (value === '' || value === null) return; // skip empty selections
                         params.append(key, value);
                     });
@@ -4585,7 +4589,9 @@ class Listing_System
                                     fetchCaravans(true);
                                 }
                             });
-                        }, { rootMargin: '400px' });
+                        }, {
+                            rootMargin: '400px'
+                        });
                     }
 
                     // Re-observe on every update: IntersectionObserver only fires on
