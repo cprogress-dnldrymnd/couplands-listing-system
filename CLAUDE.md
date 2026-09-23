@@ -51,7 +51,7 @@ new Listing_System();
 | `[is_sale]` | `render_is_sale()` | "Sale!" badge when `price < rrp` |
 | `[location_details taxonomy="..." meta_keys="..." type="tel\|email\|term_name"]` | `render_location_details()` | ACF fields from taxonomy terms |
 | `[listing_model_grid]` | `render_listing_model_grid()` | Grid of models filtered by page filter builder conditions |
-| `[manufacturer_search year="2026" carousel="yes" hide_count="yes"]` | `render_manufacturer_search()` | Manufacturer cards with per-type listing counts. Also available as Elementor widget **Manufacturer Search** (Couplands category). `carousel` = Swiper (4/2/1 slides, arrows); `hide_count` omits `(N)` from type buttons. |
+| `[manufacturer_search year="2026" carousel="yes" hide_count="yes"]` | `render_manufacturer_search()` | Manufacturer cards with per-type listing counts. Also available as Elementor widget **Manufacturer Search** (Couplands category). `carousel` = Swiper (4/2/1 slides, arrows); `hide_count` omits `(N)` from type buttons. Empty `year` shows all years (no year meta filter / no `vehicle_year` on links). |
 | `[view_model_url]` | `render_view_model_url()` | URL to parent archive page with model + page filters appended |
 | `[current_term_image field="..."]` | `render_current_term_image_shortcode()` | ACF image from current taxonomy archive term |
 

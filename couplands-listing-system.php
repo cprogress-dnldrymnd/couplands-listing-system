@@ -1202,6 +1202,7 @@ class Listing_System
         ), $atts);
 
         $target_year = sanitize_text_field($atts['year']);
+        $filter_by_year = ($target_year !== '');
         $is_carousel = $this->is_attr_enabled($atts['carousel']);
         $hide_count  = $this->is_attr_enabled($atts['hide_count']);
         $instance_id = 'cls-manu-search-' . wp_unique_id();
@@ -1247,14 +1248,17 @@ class Listing_System
                             'include_children' => true,
                         ),
                     ),
-                    'meta_query'     => array(
+                );
+
+                if ($filter_by_year) {
+                    $args['meta_query'] = array(
                         array(
                             'key'     => 'year',
                             'value'   => $target_year,
                             'compare' => '=',
                         )
-                    )
-                );
+                    );
+                }
 
                 $query = new WP_Query($args);
                 $count = $query->found_posts;
@@ -1287,13 +1291,11 @@ class Listing_System
                         <?php if (isset($counts[$pt_slug])) : ?>
                             <?php
                             $archive_url = $this->get_listing_archive_link($pt_slug);
-                            $archive_link = add_query_arg(
-                                array(
-                                    'make'         => $term->slug,
-                                    'vehicle_year' => $target_year
-                                ),
-                                $archive_url
-                            );
+                            $query_args = array('make' => $term->slug);
+                            if ($filter_by_year) {
+                                $query_args['vehicle_year'] = $target_year;
+                            }
+                            $archive_link = add_query_arg($query_args, $archive_url);
                             $btn_label = $hide_count
                                 ? $pt_label
                                 : $pt_label . ' (' . intval($counts[$pt_slug]) . ')';
@@ -4949,6 +4951,7 @@ function couplands_define_manufacturer_search_widget()
                 'type'        => \Elementor\Controls_Manager::TEXT,
                 'default'     => date('Y'),
                 'placeholder' => date('Y'),
+                'description' => __('Leave empty to show listings for all years.', 'couplands-listing'),
             ));
 
             $this->add_control('carousel', array(
@@ -4983,7 +4986,7 @@ function couplands_define_manufacturer_search_widget()
 
             // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped — render method returns escaped HTML
             echo $system->render_manufacturer_search(array(
-                'year'       => isset($settings['year']) ? $settings['year'] : date('Y'),
+                'year'       => isset($settings['year']) ? $settings['year'] : '',
                 'carousel'   => ! empty($settings['carousel']) ? $settings['carousel'] : 'no',
                 'hide_count' => ! empty($settings['hide_count']) ? $settings['hide_count'] : 'no',
             ));
