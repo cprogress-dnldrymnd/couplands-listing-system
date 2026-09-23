@@ -159,10 +159,19 @@ class Listing_Registrar
 class Listing_System
 {
     /**
+     * Singleton-style reference for Elementor widgets and helpers.
+     *
+     * @var Listing_System|null
+     */
+    private static $instance = null;
+
+    /**
      * Initialize listing system processes, hooks, and shortcodes
      */
     public function __construct()
     {
+        self::$instance = $this;
+
         // Initialize Registration
         $registrar = new Listing_Registrar();
         $registrar->init();
@@ -198,7 +207,9 @@ class Listing_System
         add_shortcode('current_term_image', array($this, 'render_current_term_image_shortcode'));
         add_shortcode('listing_model_grid', array($this, 'render_listing_model_grid'));
 
-
+        // --- Elementor widgets (Manufacturer Search, etc.) ---
+        add_action('elementor/elements/categories_registered', array($this, 'register_elementor_category'));
+        add_action('elementor/widgets/register', array($this, 'register_elementor_widgets'));
 
         // --- NEW: Child Page Template Override ---
         add_filter('template_include', array($this, 'load_first_level_child_template'));
@@ -532,6 +543,16 @@ class Listing_System
     }
 
     /**
+     * Return the active Listing_System instance.
+     *
+     * @return Listing_System|null
+     */
+    public static function get_instance()
+    {
+        return self::$instance;
+    }
+
+    /**
      * Enqueue Scripts (Front End)
      */
     public function enqueue_scripts()
@@ -542,6 +563,82 @@ class Listing_System
         wp_add_inline_script('caravan-filter-js', '
             var caravan_ajax_url = "' . admin_url('admin-ajax.php') . '";
         ');
+
+        self::register_swiper_assets();
+    }
+
+    /**
+     * Register Swiper CDN handles (enqueued only when carousel is used).
+     */
+    public static function register_swiper_assets()
+    {
+        if (! wp_style_is('cls-swiper', 'registered')) {
+            wp_register_style(
+                'cls-swiper',
+                'https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css',
+                array(),
+                '11'
+            );
+        }
+        if (! wp_script_is('cls-swiper', 'registered')) {
+            wp_register_script(
+                'cls-swiper',
+                'https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js',
+                array(),
+                '11',
+                true
+            );
+        }
+    }
+
+    /**
+     * Whether a shortcode/widget attribute should be treated as enabled.
+     *
+     * @param mixed $value Attribute value.
+     * @return bool
+     */
+    private function is_attr_enabled($value)
+    {
+        return in_array(strtolower((string) $value), array('1', 'yes', 'true', 'on'), true);
+    }
+
+    /**
+     * Enqueue Swiper assets for manufacturer search carousel mode.
+     */
+    private function enqueue_manufacturer_carousel_assets()
+    {
+        self::register_swiper_assets();
+        wp_enqueue_style('cls-swiper');
+        wp_enqueue_script('cls-swiper');
+    }
+
+    /**
+     * Register Couplands Elementor widget category.
+     *
+     * @param \Elementor\Elements_Manager $elements_manager Elements manager.
+     */
+    public function register_elementor_category($elements_manager)
+    {
+        $elements_manager->add_category('couplands', array(
+            'title' => __('Couplands', 'couplands-listing'),
+            'icon'  => 'fa fa-plug',
+        ));
+    }
+
+    /**
+     * Register Couplands Elementor widgets.
+     *
+     * @param \Elementor\Widgets_Manager $widgets_manager Widgets manager.
+     */
+    public function register_elementor_widgets($widgets_manager)
+    {
+        couplands_define_manufacturer_search_widget();
+
+        if (! class_exists('Couplands_Manufacturer_Search_Widget')) {
+            return;
+        }
+
+        $widgets_manager->register(new Couplands_Manufacturer_Search_Widget());
     }
 
     /* ==========================================================================
@@ -1088,20 +1185,26 @@ class Listing_System
     }
 
     /**
-     * Shortcode: Manufacturer Search Grid
-     * [manufacturer_search year="2026"]
-     * * @param array $atts Shortcode attributes.
-     * @return string Grid HTML.
+     * Shortcode / shared render: Manufacturer Search Grid or Carousel
+     * manufacturer_search year="2026" carousel="yes" hide_count="yes"
+     *
+     * @param array $atts Shortcode attributes.
+     * @return string Grid/carousel HTML.
      */
     public function render_manufacturer_search($atts)
     {
         ob_start();
 
         $atts = shortcode_atts(array(
-            'year' => date('Y'),
+            'year'       => date('Y'),
+            'carousel'   => 'no',
+            'hide_count' => 'no',
         ), $atts);
 
         $target_year = sanitize_text_field($atts['year']);
+        $is_carousel = $this->is_attr_enabled($atts['carousel']);
+        $hide_count  = $this->is_attr_enabled($atts['hide_count']);
+        $instance_id = 'cls-manu-search-' . wp_unique_id();
 
         $terms = get_terms(array(
             'taxonomy'   => 'listing-make-model',
@@ -1110,6 +1213,7 @@ class Listing_System
         ));
 
         if (empty($terms) || is_wp_error($terms)) {
+            ob_end_clean();
             return '';
         }
 
@@ -1119,89 +1223,130 @@ class Listing_System
             'campervan' => 'Campervans'
         ];
 
-    ?>
-        <div class="manufacturer-search-grid">
-            <?php foreach ($terms as $term) : ?>
-                <?php
-                $logo = get_field('logo', $term);
-                $accent_color = get_field('accent_color', $term);
-                $bg_style = $accent_color ? 'background-color: ' . esc_attr($accent_color) . ';' : 'background-color: #333;';
+        // Build cards first so we can skip empty output entirely.
+        $cards_html = '';
+        foreach ($terms as $term) {
+            $logo = function_exists('get_field') ? get_field('logo', $term) : null;
+            $accent_color = function_exists('get_field') ? get_field('accent_color', $term) : null;
+            $bg_style = $accent_color ? 'background-color: ' . esc_attr($accent_color) . ';' : 'background-color: #333;';
 
-                $counts = [];
-                $total_year_count = 0;
+            $counts = [];
+            $total_year_count = 0;
 
-                foreach ($post_types as $pt_slug => $pt_label) {
-                    $args = array(
-                        'post_type'      => $pt_slug,
-                        'post_status'    => 'publish',
-                        'posts_per_page' => 1,
-                        'fields'         => 'ids',
-                        'tax_query'      => array(
-                            array(
-                                'taxonomy'         => 'listing-make-model',
-                                'field'            => 'term_id',
-                                'terms'            => $term->term_id,
-                                'include_children' => true,
-                            ),
+            foreach ($post_types as $pt_slug => $pt_label) {
+                $args = array(
+                    'post_type'      => $pt_slug,
+                    'post_status'    => 'publish',
+                    'posts_per_page' => 1,
+                    'fields'         => 'ids',
+                    'tax_query'      => array(
+                        array(
+                            'taxonomy'         => 'listing-make-model',
+                            'field'            => 'term_id',
+                            'terms'            => $term->term_id,
+                            'include_children' => true,
                         ),
-                        'meta_query'     => array(
-                            array(
-                                'key'      => 'year',
-                                'value'    => $target_year,
-                                'compare' => '=',
-                            )
+                    ),
+                    'meta_query'     => array(
+                        array(
+                            'key'     => 'year',
+                            'value'   => $target_year,
+                            'compare' => '=',
                         )
-                    );
+                    )
+                );
 
-                    $query = new WP_Query($args);
-                    $count = $query->found_posts;
+                $query = new WP_Query($args);
+                $count = $query->found_posts;
 
-                    if ($count > 0) {
-                        $counts[$pt_slug] = $count;
-                        $total_year_count += $count;
+                if ($count > 0) {
+                    $counts[$pt_slug] = $count;
+                    $total_year_count += $count;
+                }
+            }
+
+            if ($total_year_count === 0) {
+                continue;
+            }
+
+            ob_start();
+            ?>
+            <div class="manufacturer-card">
+                <div class="manufacturer-logo" style="<?php echo $bg_style; ?>">
+                    <?php
+                    if ($logo) {
+                        echo wp_get_attachment_image($logo, 'medium');
+                    } else {
+                        echo '<h3 style="color:#fff;">' . esc_html($term->name) . '</h3>';
                     }
-                }
-
-                if ($total_year_count === 0) {
-                    continue;
-                }
-                ?>
-
-                <div class="manufacturer-card">
-                    <div class="manufacturer-logo" style="<?php echo $bg_style; ?>">
-                        <?php
-                        if ($logo) {
-                            echo wp_get_attachment_image($logo, 'medium');
-                        } else {
-                            echo '<h3 style="color:#fff;">' . esc_html($term->name) . '</h3>';
-                        }
-                        ?>
-                    </div>
-
-                    <div class="manufacturer-buttons">
-                        <?php foreach ($post_types as $pt_slug => $pt_label) : ?>
-                            <?php if (isset($counts[$pt_slug])) : ?>
-                                <?php
-                                // UPDATED: Use helper to get link, then add query args
-                                $archive_url = $this->get_listing_archive_link($pt_slug);
-                                $archive_link = add_query_arg(
-                                    array(
-                                        'make' => $term->slug,
-                                        'vehicle_year' => $target_year
-                                    ),
-                                    $archive_url
-                                );
-                                ?>
-                                <a href="<?php echo esc_url($archive_link); ?>" class="manu-btn">
-                                    <?php echo esc_html($pt_label); ?> (<?php echo intval($counts[$pt_slug]); ?>)
-                                </a>
-                            <?php endif; ?>
-                        <?php endforeach; ?>
-                    </div>
+                    ?>
                 </div>
 
-            <?php endforeach; ?>
-        </div>
+                <div class="manufacturer-buttons">
+                    <?php foreach ($post_types as $pt_slug => $pt_label) : ?>
+                        <?php if (isset($counts[$pt_slug])) : ?>
+                            <?php
+                            $archive_url = $this->get_listing_archive_link($pt_slug);
+                            $archive_link = add_query_arg(
+                                array(
+                                    'make'         => $term->slug,
+                                    'vehicle_year' => $target_year
+                                ),
+                                $archive_url
+                            );
+                            $btn_label = $hide_count
+                                ? $pt_label
+                                : $pt_label . ' (' . intval($counts[$pt_slug]) . ')';
+                            ?>
+                            <a href="<?php echo esc_url($archive_link); ?>" class="manu-btn">
+                                <?php echo esc_html($btn_label); ?>
+                            </a>
+                        <?php endif; ?>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+            <?php
+            $card = ob_get_clean();
+
+            if ($is_carousel) {
+                $cards_html .= '<div class="swiper-slide">' . $card . '</div>';
+            } else {
+                $cards_html .= $card;
+            }
+        }
+
+        if ($cards_html === '') {
+            ob_end_clean();
+            return '';
+        }
+
+        if ($is_carousel) {
+            $this->enqueue_manufacturer_carousel_assets();
+
+            $init_js = sprintf(
+                '(function(){function init(){var root=document.getElementById(%1$s);if(!root||typeof Swiper==="undefined"){return;}var el=root.querySelector(".manufacturer-search-swiper");if(!el||el.swiper){return;}new Swiper(el,{slidesPerView:1,spaceBetween:20,watchOverflow:true,navigation:{nextEl:root.querySelector(".swiper-button-next"),prevEl:root.querySelector(".swiper-button-prev")},breakpoints:{576:{slidesPerView:2},1025:{slidesPerView:4}}});}if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",init);}else{init();}})();',
+                wp_json_encode($instance_id)
+            );
+            wp_add_inline_script('cls-swiper', $init_js);
+            ?>
+            <div class="manufacturer-search-carousel" id="<?php echo esc_attr($instance_id); ?>">
+                <div class="swiper manufacturer-search-swiper">
+                    <div class="swiper-wrapper">
+                        <?php echo $cards_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped — built from escaped fragments above ?>
+                    </div>
+                    <div class="swiper-button-prev"></div>
+                    <div class="swiper-button-next"></div>
+                </div>
+            </div>
+            <?php
+        } else {
+            ?>
+            <div class="manufacturer-search-grid">
+                <?php echo $cards_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped — built from escaped fragments above ?>
+            </div>
+            <?php
+        }
+        ?>
 
         <style>
             .manufacturer-search-grid {
@@ -1209,6 +1354,30 @@ class Listing_System
                 grid-template-columns: repeat(4, 1fr);
                 gap: 20px;
                 margin-bottom: 40px;
+            }
+
+            .manufacturer-search-carousel {
+                position: relative;
+                margin-bottom: 40px;
+                padding: 0 48px;
+            }
+
+            .manufacturer-search-carousel .swiper-slide {
+                height: auto;
+            }
+
+            .manufacturer-search-carousel .manufacturer-card {
+                height: 100%;
+            }
+
+            .manufacturer-search-carousel .swiper-button-prev,
+            .manufacturer-search-carousel .swiper-button-next {
+                color: #181C21;
+            }
+
+            .manufacturer-search-carousel .swiper-button-prev::after,
+            .manufacturer-search-carousel .swiper-button-next::after {
+                font-size: 24px;
             }
 
             .manufacturer-card {
@@ -1287,7 +1456,8 @@ class Listing_System
             }
 
             @media(max-width: 575px) {
-                .manufacturer-search-grid .manu-btn {
+                .manufacturer-search-grid .manu-btn,
+                .manufacturer-search-carousel .manu-btn {
                     font-size: 16px;
                     padding: 10px 10px;
                 }
@@ -1299,10 +1469,15 @@ class Listing_System
                 .manufacturer-logo img {
                     height: 50px;
                 }
+
+                .manufacturer-search-carousel {
+                    padding: 0 36px;
+                }
             }
 
             @media(max-width: 480px) {
-                .manufacturer-search-grid .manu-btn {
+                .manufacturer-search-grid .manu-btn,
+                .manufacturer-search-carousel .manu-btn {
                     font-size: 14px;
                 }
 
@@ -4713,4 +4888,113 @@ class Listing_System
 <?php
     }
 }
+
+/**
+ * Define Manufacturer Search Elementor widget when Elementor is available.
+ */
+function couplands_define_manufacturer_search_widget()
+{
+    if (class_exists('Couplands_Manufacturer_Search_Widget') || ! class_exists('\Elementor\Widget_Base')) {
+        return;
+    }
+
+    class Couplands_Manufacturer_Search_Widget extends \Elementor\Widget_Base
+    {
+        public function get_name()
+        {
+            return 'couplands_manufacturer_search';
+        }
+
+        public function get_title()
+        {
+            return __('Manufacturer Search', 'couplands-listing');
+        }
+
+        public function get_icon()
+        {
+            return 'eicon-gallery-grid';
+        }
+
+        public function get_categories()
+        {
+            return array('couplands');
+        }
+
+        public function get_keywords()
+        {
+            return array('manufacturer', 'make', 'search', 'caravan', 'couplands');
+        }
+
+        public function get_style_depends()
+        {
+            Listing_System::register_swiper_assets();
+            return array('cls-swiper');
+        }
+
+        public function get_script_depends()
+        {
+            Listing_System::register_swiper_assets();
+            return array('cls-swiper');
+        }
+
+        protected function register_controls()
+        {
+            $this->start_controls_section('content_section', array(
+                'label' => __('Settings', 'couplands-listing'),
+                'tab'   => \Elementor\Controls_Manager::TAB_CONTENT,
+            ));
+
+            $this->add_control('year', array(
+                'label'       => __('Year', 'couplands-listing'),
+                'type'        => \Elementor\Controls_Manager::TEXT,
+                'default'     => date('Y'),
+                'placeholder' => date('Y'),
+            ));
+
+            $this->add_control('carousel', array(
+                'label'        => __('Display as carousel', 'couplands-listing'),
+                'type'         => \Elementor\Controls_Manager::SWITCHER,
+                'label_on'     => __('Yes', 'couplands-listing'),
+                'label_off'    => __('No', 'couplands-listing'),
+                'return_value' => 'yes',
+                'default'      => '',
+            ));
+
+            $this->add_control('hide_count', array(
+                'label'        => __('Hide listing counts', 'couplands-listing'),
+                'type'         => \Elementor\Controls_Manager::SWITCHER,
+                'label_on'     => __('Yes', 'couplands-listing'),
+                'label_off'    => __('No', 'couplands-listing'),
+                'return_value' => 'yes',
+                'default'      => '',
+            ));
+
+            $this->end_controls_section();
+        }
+
+        protected function render()
+        {
+            $settings = $this->get_settings_for_display();
+            $system   = Listing_System::get_instance();
+
+            if (! $system) {
+                return;
+            }
+
+            // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped — render method returns escaped HTML
+            echo $system->render_manufacturer_search(array(
+                'year'       => isset($settings['year']) ? $settings['year'] : date('Y'),
+                'carousel'   => ! empty($settings['carousel']) ? $settings['carousel'] : 'no',
+                'hide_count' => ! empty($settings['hide_count']) ? $settings['hide_count'] : 'no',
+            ));
+        }
+    }
+}
+
+if (did_action('elementor/loaded')) {
+    couplands_define_manufacturer_search_widget();
+} else {
+    add_action('elementor/loaded', 'couplands_define_manufacturer_search_widget');
+}
+
 new Listing_System();

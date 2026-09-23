@@ -11,7 +11,7 @@ WordPress plugin (v2.8.7) for Couplands — a caravan/motorhome/campervan dealer
 | ACF (Advanced Custom Fields) | Field data | `get_field()`, `acf_get_fields()` — plugin falls back to `get_post_meta` if not active |
 | Elementor | Listing card templates | `do_shortcode('[elementor-template id="..."]')` |
 | jQuery | All JS | Loaded via WordPress core (`wp_enqueue_scripts`) |
-| Swiper.js | Image slider | Loaded from CDN inside `render_listing_gallery()` |
+| Swiper.js | Image slider / manufacturer carousel | Gallery uses global Swiper if present; manufacturer carousel enqueues Swiper 11 from CDN (`cls-swiper`) when `carousel` is on |
 | FancyBox v5 | Lightbox | Loaded from CDN inside `render_listing_gallery()` |
 | WooCommerce | Product listings | Optional — checked before use |
 
@@ -51,7 +51,7 @@ new Listing_System();
 | `[is_sale]` | `render_is_sale()` | "Sale!" badge when `price < rrp` |
 | `[location_details taxonomy="..." meta_keys="..." type="tel\|email\|term_name"]` | `render_location_details()` | ACF fields from taxonomy terms |
 | `[listing_model_grid]` | `render_listing_model_grid()` | Grid of models filtered by page filter builder conditions |
-| `[manufacturer_search year="2026"]` | `render_manufacturer_search()` | Manufacturer cards with per-type listing counts |
+| `[manufacturer_search year="2026" carousel="yes" hide_count="yes"]` | `render_manufacturer_search()` | Manufacturer cards with per-type listing counts. Also available as Elementor widget **Manufacturer Search** (Couplands category). `carousel` = Swiper (4/2/1 slides, arrows); `hide_count` omits `(N)` from type buttons. |
 | `[view_model_url]` | `render_view_model_url()` | URL to parent archive page with model + page filters appended |
 | `[current_term_image field="..."]` | `render_current_term_image_shortcode()` | ACF image from current taxonomy archive term |
 
