@@ -1326,7 +1326,7 @@ class Listing_System
             $this->enqueue_manufacturer_carousel_assets();
 
             $init_js = sprintf(
-                '(function(){function init(){var root=document.getElementById(%1$s);if(!root||typeof Swiper==="undefined"){return;}var el=root.querySelector(".manufacturer-search-swiper");if(!el||el.swiper){return;}new Swiper(el,{slidesPerView:1,spaceBetween:20,watchOverflow:true,navigation:{nextEl:root.querySelector(".swiper-button-next"),prevEl:root.querySelector(".swiper-button-prev")},breakpoints:{576:{slidesPerView:2},1025:{slidesPerView:4}}});}if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",init);}else{init();}})();',
+                '(function(){function init(){var root=document.getElementById(%1$s);if(!root||typeof Swiper==="undefined"){return;}var el=root.querySelector(".manufacturer-search-swiper");if(!el||el.swiper){return;}new Swiper(el,{slidesPerView:1,spaceBetween:20,watchOverflow:true,autoplay:{delay:5000,disableOnInteraction:false,pauseOnMouseEnter:true},navigation:{nextEl:root.querySelector(".swiper-button-next"),prevEl:root.querySelector(".swiper-button-prev")},pagination:{el:root.querySelector(".swiper-pagination"),clickable:true},breakpoints:{576:{slidesPerView:2,autoplay:false},1025:{slidesPerView:4,autoplay:false}}});}if(document.readyState==="loading"){document.addEventListener("DOMContentLoaded",init);}else{init();}})();',
                 wp_json_encode($instance_id)
             );
             wp_add_inline_script('cls-swiper', $init_js);
@@ -1338,6 +1338,7 @@ class Listing_System
                     </div>
                     <div class="swiper-button-prev"></div>
                     <div class="swiper-button-next"></div>
+                    <div class="swiper-pagination"></div>
                 </div>
             </div>
             <?php
@@ -1380,6 +1381,21 @@ class Listing_System
             .manufacturer-search-carousel .swiper-button-prev::after,
             .manufacturer-search-carousel .swiper-button-next::after {
                 font-size: 24px;
+            }
+
+            .manufacturer-search-carousel .swiper-pagination {
+                display: none;
+                position: static;
+                margin-top: 16px;
+            }
+
+            .manufacturer-search-carousel .swiper-pagination-bullet {
+                background: #181C21;
+                opacity: 0.25;
+            }
+
+            .manufacturer-search-carousel .swiper-pagination-bullet-active {
+                opacity: 1;
             }
 
             .manufacturer-card {
@@ -1473,7 +1489,16 @@ class Listing_System
                 }
 
                 .manufacturer-search-carousel {
-                    padding: 0 36px;
+                    padding: 0;
+                }
+
+                .manufacturer-search-carousel .swiper-button-prev,
+                .manufacturer-search-carousel .swiper-button-next {
+                    display: none;
+                }
+
+                .manufacturer-search-carousel .swiper-pagination {
+                    display: block;
                 }
             }
 
