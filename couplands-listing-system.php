@@ -1820,7 +1820,6 @@ class Listing_System
     ?>
         <div class="pricing">
             <div class="pricing-box">
-                <span class="prefix-suffix">From</span>
                 <span class="value"><?= esc_html($fmt_price); ?></span>
                 <span class="prefix-suffix">per <br>night</span>
             </div>
