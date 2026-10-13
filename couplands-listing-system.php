@@ -1671,7 +1671,7 @@ class Listing_System
      * Shortcode: Pricing Display
      * [pricing]
      * Calculates monthly cost dynamically and displays RRP if on sale.
-     * Incorporates 8.5% UK APR calculation.
+     * Uses finance assumptions from General Settings (APR, deposit %, term).
      * * @return string Pricing block HTML.
      */
     public function render_pricing()
@@ -1699,11 +1699,13 @@ class Listing_System
                 $is_sale = true;
             }
 
-            $deposit_percentage = 0.20; // 20% deposit
-            $term_months        = 120;  // 120 month term
-
-            // Update APR based on the provided finance example
-            $apr = 0.085; // 8.5% APR
+            $apr_percent = (float) get_option('couplands_finance_apr', 8.5);
+            $deposit_percentage = (float) get_option('couplands_finance_deposit_percent', 20) / 100;
+            $term_months = (int) get_option('couplands_finance_term_months', 120);
+            if ($term_months < 1) {
+                $term_months = 120;
+            }
+            $apr = $apr_percent / 100;
 
             $deposit   = $clean_price * $deposit_percentage;
             $principal = $clean_price - $deposit;
@@ -2534,8 +2536,73 @@ class Listing_System
         register_setting('couplands_general_settings', 'couplands_placeholder_image_motorhome');
         register_setting('couplands_general_settings', 'couplands_placeholder_image_campervan');
 
+        // Finance Calculator Settings
+        register_setting('couplands_general_settings', 'couplands_finance_apr', array(
+            'type'              => 'number',
+            'sanitize_callback' => array($this, 'sanitize_finance_apr'),
+            'default'           => 8.5,
+        ));
+        register_setting('couplands_general_settings', 'couplands_finance_deposit_percent', array(
+            'type'              => 'number',
+            'sanitize_callback' => array($this, 'sanitize_finance_deposit_percent'),
+            'default'           => 20,
+        ));
+        register_setting('couplands_general_settings', 'couplands_finance_term_months', array(
+            'type'              => 'integer',
+            'sanitize_callback' => array($this, 'sanitize_finance_term_months'),
+            'default'           => 120,
+        ));
+
         // --- ADDED: Meta Fields Settings ---
         register_setting('couplands_meta_fields_group', 'couplands_meta_fields_config');
+    }
+
+    /**
+     * Sanitize finance APR percent (e.g. 8.5). Falls back to 8.5 when invalid.
+     *
+     * @param mixed $value
+     * @return float
+     */
+    public function sanitize_finance_apr($value)
+    {
+        if ($value === '' || $value === null || !is_numeric($value)) {
+            return 8.5;
+        }
+        $value = (float) $value;
+        return ($value >= 0) ? $value : 8.5;
+    }
+
+    /**
+     * Sanitize finance deposit percent (0–100). Falls back to 20 when invalid.
+     *
+     * @param mixed $value
+     * @return float
+     */
+    public function sanitize_finance_deposit_percent($value)
+    {
+        if ($value === '' || $value === null || !is_numeric($value)) {
+            return 20.0;
+        }
+        $value = (float) $value;
+        if ($value < 0 || $value > 100) {
+            return 20.0;
+        }
+        return $value;
+    }
+
+    /**
+     * Sanitize finance term in months. Falls back to 120 when invalid.
+     *
+     * @param mixed $value
+     * @return int
+     */
+    public function sanitize_finance_term_months($value)
+    {
+        if ($value === '' || $value === null || !is_numeric($value)) {
+            return 120;
+        }
+        $value = (int) $value;
+        return ($value >= 1) ? $value : 120;
     }
 
     /**
@@ -2871,6 +2938,40 @@ class Listing_System
                     </td>
                 </tr>
             <?php endforeach; ?>
+        </table>
+
+        <hr>
+
+        <h3>Finance Calculator</h3>
+        <p>Assumptions used by the pricing shortcode for monthly finance estimates.</p>
+        <table class="form-table">
+            <tr>
+                <th scope="row"><label for="couplands_finance_apr">APR (%)</label></th>
+                <td>
+                    <input type="number" name="couplands_finance_apr" id="couplands_finance_apr"
+                        value="<?php echo esc_attr(get_option('couplands_finance_apr', 8.5)); ?>"
+                        step="0.1" min="0" class="small-text" />
+                    <p class="description">UK EAR APR used for monthly payments (e.g. 8.5).</p>
+                </td>
+            </tr>
+            <tr>
+                <th scope="row"><label for="couplands_finance_deposit_percent">Deposit (%)</label></th>
+                <td>
+                    <input type="number" name="couplands_finance_deposit_percent" id="couplands_finance_deposit_percent"
+                        value="<?php echo esc_attr(get_option('couplands_finance_deposit_percent', 20)); ?>"
+                        step="0.1" min="0" max="100" class="small-text" />
+                    <p class="description">Deposit as a percentage of the listing price (e.g. 20).</p>
+                </td>
+            </tr>
+            <tr>
+                <th scope="row"><label for="couplands_finance_term_months">Term (months)</label></th>
+                <td>
+                    <input type="number" name="couplands_finance_term_months" id="couplands_finance_term_months"
+                        value="<?php echo esc_attr(get_option('couplands_finance_term_months', 120)); ?>"
+                        step="1" min="1" class="small-text" />
+                    <p class="description">Loan term in months (e.g. 120).</p>
+                </td>
+            </tr>
         </table>
 
         <script>

@@ -47,7 +47,7 @@ new Listing_System();
 | `[listing_feature key="interior_features"]` | `render_listing_feature()` | Comma-separated meta → `<ul>` |
 | `[listing_meta_fields]` | `render_listing_meta_fields()` | 3-col grid of ACF fields (config from admin) |
 | `[listing_filter_mobile]` | `render_listing_filter_mobile()` | Trigger button for mobile filter drawer |
-| `[pricing]` | `render_pricing()` | Price + monthly finance (8.5% APR, 20% deposit, 120 months) |
+| `[pricing]` | `render_pricing()` | Price + monthly finance (APR/deposit/term from General Settings; defaults 8.5% / 20% / 120 months) |
 | `[is_sale]` | `render_is_sale()` | "Sale!" badge when `price < rrp` |
 | `[location_details taxonomy="..." meta_keys="..." type="tel\|email\|term_name"]` | `render_location_details()` | ACF fields from taxonomy terms |
 | `[listing_model_grid]` | `render_listing_model_grid()` | Grid of models filtered by page filter builder conditions |
@@ -105,6 +105,9 @@ Unavailable options are **completely removed from the DOM** (not disabled):
 | `couplands_child_template_{type}` | option | Elementor template ID for direct children of archive page |
 | `couplands_model_grid_item_template` | option | Elementor template ID for model grid items |
 | `couplands_placeholder_image_{type}` | option | Attachment ID of placeholder image per post type |
+| `couplands_finance_apr` | option | Finance APR percent for monthly pricing (default 8.5) |
+| `couplands_finance_deposit_percent` | option | Finance deposit percent (default 20) |
+| `couplands_finance_term_months` | option | Finance term in months (default 120) |
 | `couplands_meta_fields_config` | option | Ordered array of ACF fields for `[listing_meta_fields]` display |
 | `_listing_gallery_ids` | post meta | Comma-separated attachment IDs |
 | `_couplands_page_filters` | post meta | Per-page filter conditions for `[listing_model_grid]` |
@@ -116,7 +119,7 @@ ACF field groups pulled for meta fields admin tab: IDs `541`, `2642`, `2443`.
 **Menu:** "Listings" (custom top-level menu, `dashicons-list-view`, position 6). Submenus: Caravans, Motorhomes, Campervans, Locations, Makes & Models, Categories, Settings. CPT default menu items are removed.
 
 **Settings page** (`couplands-filter-settings`), tabs:
-- **General** — archive page mapping, child page templates, model grid template, placeholder images
+- **General** — archive page mapping, child page templates, model grid template, placeholder images, finance calculator (APR / deposit % / term)
 - **Caravan/Motorhome/Campervan/Product Filters** — drag-sortable rows configuring which meta/taxonomy fields appear as filter inputs, their label, input type (select/checkbox/radio), default label, and URL param name
 - **Meta Fields Display** — drag-sortable ACF field list with visibility, custom label, and price-formatting toggles
 
@@ -124,9 +127,9 @@ ACF field groups pulled for meta fields admin tab: IDs `541`, `2642`, `2443`.
 
 ## Finance calculation
 
-`render_pricing()` uses UK EAR (Effective Annual Rate):
-- `monthly_rate = (1 + APR)^(1/12) - 1` where APR = 0.085
-- 20% deposit, 120-month term
+`render_pricing()` uses UK EAR (Effective Annual Rate). Assumptions come from General Settings options (`couplands_finance_apr`, `couplands_finance_deposit_percent`, `couplands_finance_term_months`); defaults match the previous hardcodes (8.5% APR, 20% deposit, 120 months):
+- `monthly_rate = (1 + APR)^(1/12) - 1` where APR is the stored percent divided by 100
+- Deposit and term from the same options
 - Standard amortized formula: `P * (r * (1+r)^n) / ((1+r)^n - 1)`
 
 ## Mobile filter modal
