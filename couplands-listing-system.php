@@ -210,6 +210,7 @@ class Listing_System
         // --- Elementor widgets (Manufacturer Search, etc.) ---
         add_action('elementor/elements/categories_registered', array($this, 'register_elementor_category'));
         add_action('elementor/widgets/register', array($this, 'register_elementor_widgets'));
+        add_action('elementor/editor/after_enqueue_scripts', array($this, 'enqueue_elementor_editor_assets'));
 
         // --- NEW: Child Page Template Override ---
         add_filter('template_include', array($this, 'load_first_level_child_template'));
@@ -639,6 +640,331 @@ class Listing_System
         }
 
         $widgets_manager->register(new Couplands_Manufacturer_Search_Widget());
+    }
+
+    /**
+     * Parent make terms for editor sortable UI / config merge.
+     *
+     * @return array<int, array{slug: string, name: string}>
+     */
+    public function get_parent_makes_for_editor()
+    {
+        $makes = array();
+        $terms = get_terms(array(
+            'taxonomy'   => 'listing-make-model',
+            'parent'     => 0,
+            'hide_empty' => false,
+            'orderby'    => 'name',
+            'order'      => 'ASC',
+        ));
+
+        if (empty($terms) || is_wp_error($terms)) {
+            return $makes;
+        }
+
+        foreach ($terms as $term) {
+            $makes[] = array(
+                'slug' => $term->slug,
+                'name' => $term->name,
+            );
+        }
+
+        return $makes;
+    }
+
+    /**
+     * Parse makes_config into ordered rows, merged with current parent makes.
+     * Format: "bailey:1,swift:0" (1 = visible, 0 = hidden).
+     *
+     * @param string $config Raw config string.
+     * @return array<int, array{slug: string, visible: bool}>
+     */
+    public function parse_makes_config($config)
+    {
+        $all = $this->get_parent_makes_for_editor();
+        $by_slug = array();
+        foreach ($all as $row) {
+            $by_slug[$row['slug']] = $row['name'];
+        }
+
+        $ordered = array();
+        $seen    = array();
+        $parts   = array_filter(array_map('trim', explode(',', (string) $config)));
+
+        foreach ($parts as $part) {
+            $bits = explode(':', $part, 2);
+            $slug = sanitize_title($bits[0]);
+            if ($slug === '' || ! isset($by_slug[$slug]) || isset($seen[$slug])) {
+                continue;
+            }
+            $visible = ! isset($bits[1]) || $bits[1] === '' || $bits[1] === '1' || $bits[1] === 'true';
+            $seen[$slug] = true;
+            $ordered[] = array(
+                'slug'    => $slug,
+                'visible' => (bool) $visible,
+            );
+        }
+
+        foreach ($by_slug as $slug => $_name) {
+            if (isset($seen[$slug])) {
+                continue;
+            }
+            $ordered[] = array(
+                'slug'    => $slug,
+                'visible' => true,
+            );
+        }
+
+        return $ordered;
+    }
+
+    /**
+     * Visible make slugs from makes_config, in order. Empty = show all (caller passes '').
+     *
+     * @param string $config Raw config string.
+     * @return string Comma-separated visible slugs, or '' when none/all-default.
+     */
+    public function makes_config_to_visible_slugs($config)
+    {
+        $config = trim((string) $config);
+        if ($config === '') {
+            return '';
+        }
+
+        $visible = array();
+        foreach ($this->parse_makes_config($config) as $row) {
+            if (! empty($row['visible'])) {
+                $visible[] = $row['slug'];
+            }
+        }
+
+        // No visible makes → fall back to all parents.
+        if (empty($visible)) {
+            return '';
+        }
+
+        return implode(',', $visible);
+    }
+
+    /**
+     * Elementor editor assets for manufacturer makes sortable UI.
+     */
+    public function enqueue_elementor_editor_assets()
+    {
+        wp_register_script('cls-makes-sortable', false, array('jquery', 'jquery-ui-sortable'), '1.0.0', true);
+        wp_enqueue_script('cls-makes-sortable');
+        wp_localize_script('cls-makes-sortable', 'clsMakesSortable', array(
+            'makes' => $this->get_parent_makes_for_editor(),
+            'i18n'  => array(
+                'empty' => __('No parent makes found.', 'couplands-listing'),
+                'hint'  => __('Drag to reorder. Uncheck to hide from the widget output.', 'couplands-listing'),
+            ),
+        ));
+        wp_add_inline_script('cls-makes-sortable', $this->get_makes_sortable_editor_script());
+
+        wp_register_style('cls-makes-sortable', false, array(), '1.0.0');
+        wp_enqueue_style('cls-makes-sortable');
+        wp_add_inline_style('cls-makes-sortable', $this->get_makes_sortable_editor_style());
+    }
+
+    /**
+     * Inline JS for Elementor manufacturer makes sortable control.
+     *
+     * @return string
+     */
+    private function get_makes_sortable_editor_script()
+    {
+        return <<<'JS'
+(function ($) {
+    function parseConfig(raw) {
+        var map = {};
+        var order = [];
+        String(raw || '').split(',').forEach(function (part) {
+            part = $.trim(part);
+            if (!part) return;
+            var bits = part.split(':');
+            var slug = $.trim(bits[0]);
+            if (!slug || map[slug]) return;
+            map[slug] = !(bits[1] === '0' || bits[1] === 'false');
+            order.push(slug);
+        });
+        return { map: map, order: order };
+    }
+
+    function mergeMakes(raw) {
+        var parsed = parseConfig(raw);
+        var makes = (window.clsMakesSortable && clsMakesSortable.makes) ? clsMakesSortable.makes.slice() : [];
+        var bySlug = {};
+        makes.forEach(function (m) { bySlug[m.slug] = m.name; });
+
+        var rows = [];
+        parsed.order.forEach(function (slug) {
+            if (!bySlug[slug]) return;
+            rows.push({ slug: slug, name: bySlug[slug], visible: parsed.map[slug] !== false });
+            delete bySlug[slug];
+        });
+        Object.keys(bySlug).forEach(function (slug) {
+            rows.push({ slug: slug, name: bySlug[slug], visible: true });
+        });
+        return rows;
+    }
+
+    function serializeRows($list) {
+        var parts = [];
+        $list.children('.cls-makes-sortable__item').each(function () {
+            var $item = $(this);
+            var slug = $item.data('slug');
+            var on = $item.find('.cls-makes-sortable__toggle').is(':checked') ? '1' : '0';
+            parts.push(slug + ':' + on);
+        });
+        return parts.join(',');
+    }
+
+    function writeConfig(model, value) {
+        if (!model || typeof model.setSetting !== 'function') return;
+        model.setSetting('makes_config', value);
+    }
+
+    function buildList($mount, model) {
+        var raw = model.getSetting('makes_config') || '';
+        var rows = mergeMakes(raw);
+        var hint = (window.clsMakesSortable && clsMakesSortable.i18n && clsMakesSortable.i18n.hint) || '';
+        var emptyMsg = (window.clsMakesSortable && clsMakesSortable.i18n && clsMakesSortable.i18n.empty) || '';
+
+        $mount.empty();
+        if (!rows.length) {
+            $mount.append($('<p class="cls-makes-sortable__empty"/>').text(emptyMsg));
+            return;
+        }
+
+        if (hint) {
+            $mount.append($('<p class="cls-makes-sortable__hint"/>').text(hint));
+        }
+
+        var $list = $('<ul class="cls-makes-sortable__list"/>');
+        rows.forEach(function (row) {
+            var $item = $('<li class="cls-makes-sortable__item"/>').attr('data-slug', row.slug);
+            var $handle = $('<span class="cls-makes-sortable__handle" title="Drag">⋮⋮</span>');
+            var $toggle = $('<input type="checkbox" class="cls-makes-sortable__toggle"/>').prop('checked', !!row.visible);
+            var $label = $('<span class="cls-makes-sortable__name"/>').text(row.name);
+            $item.append($handle, $toggle, $label);
+            $list.append($item);
+        });
+        $mount.append($list);
+
+        $list.sortable({
+            handle: '.cls-makes-sortable__handle',
+            axis: 'y',
+            update: function () {
+                writeConfig(model, serializeRows($list));
+            }
+        });
+
+        $list.on('change', '.cls-makes-sortable__toggle', function () {
+            writeConfig(model, serializeRows($list));
+        });
+    }
+
+    function initPanel(panel, model) {
+        var $panel = panel.$el || (panel.getLayout && panel.getLayout().$el);
+        if (!$panel || !$panel.length) {
+            $panel = $('.elementor-panel');
+        }
+        var tries = 0;
+        (function waitMount() {
+            var $mount = $panel.find('.cls-makes-sortable-mount').first();
+            if (!$mount.length) {
+                if (tries++ < 40) {
+                    setTimeout(waitMount, 50);
+                }
+                return;
+            }
+            if ($mount.data('cls-ready')) {
+                return;
+            }
+            $mount.data('cls-ready', true);
+            buildList($mount, model);
+        })();
+    }
+
+    function bindHook() {
+        if (typeof elementor === 'undefined' || !elementor.hooks || !elementor.hooks.addAction) {
+            setTimeout(bindHook, 50);
+            return;
+        }
+        elementor.hooks.addAction('panel/open_editor/widget/couplands_manufacturer_search', function (panel, model) {
+            // Reset mount so reopening the panel rebuilds from latest settings.
+            var $panel = (panel && panel.$el) ? panel.$el : $('.elementor-panel');
+            $panel.find('.cls-makes-sortable-mount').removeData('cls-ready').empty();
+            initPanel(panel, model);
+        });
+    }
+
+    $(window).on('elementor:init', bindHook);
+    bindHook();
+})(jQuery);
+JS;
+    }
+
+    /**
+     * Inline CSS for Elementor manufacturer makes sortable control.
+     *
+     * @return string
+     */
+    private function get_makes_sortable_editor_style()
+    {
+        return <<<'CSS'
+.elementor-control-makes_config {
+    display: none !important;
+}
+.cls-makes-sortable-mount {
+    margin: 0 0 12px;
+}
+.cls-makes-sortable__hint,
+.cls-makes-sortable__empty {
+    margin: 0 0 8px;
+    font-size: 12px;
+    color: #6d7882;
+}
+.cls-makes-sortable__list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    border: 1px solid #d5d8dc;
+    border-radius: 3px;
+    background: #fff;
+    max-height: 320px;
+    overflow: auto;
+}
+.cls-makes-sortable__item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border-bottom: 1px solid #e6e8ea;
+    background: #fff;
+    cursor: default;
+}
+.cls-makes-sortable__item:last-child {
+    border-bottom: 0;
+}
+.cls-makes-sortable__handle {
+    cursor: grab;
+    color: #a4afb7;
+    user-select: none;
+    letter-spacing: -2px;
+    font-size: 14px;
+    line-height: 1;
+}
+.cls-makes-sortable__toggle {
+    margin: 0 !important;
+}
+.cls-makes-sortable__name {
+    flex: 1;
+    font-size: 13px;
+    color: #495157;
+}
+CSS;
     }
 
     /* ==========================================================================
@@ -5141,32 +5467,17 @@ function couplands_define_manufacturer_search_widget()
                 'default'      => '',
             ));
 
-            $make_options = array('' => __('— Select make —', 'couplands-listing'));
-            $parent_makes = get_terms(array(
-                'taxonomy'   => 'listing-make-model',
-                'parent'     => 0,
-                'hide_empty' => false,
-            ));
-            if (! empty($parent_makes) && ! is_wp_error($parent_makes)) {
-                foreach ($parent_makes as $make_term) {
-                    $make_options[$make_term->slug] = $make_term->name;
-                }
-            }
-
-            $makes_repeater = new \Elementor\Repeater();
-            $makes_repeater->add_control('make_slug', array(
-                'label'   => __('Make', 'couplands-listing'),
-                'type'    => \Elementor\Controls_Manager::SELECT,
-                'options' => $make_options,
-                'default' => '',
+            $this->add_control('makes_ui', array(
+                'type' => \Elementor\Controls_Manager::RAW_HTML,
+                'raw'  => '<div class="cls-makes-sortable-mount" data-setting="makes_config"></div>',
             ));
 
-            $this->add_control('makes', array(
-                'label'       => __('Manufacturers (order)', 'couplands-listing'),
-                'type'        => \Elementor\Controls_Manager::REPEATER,
-                'fields'      => $makes_repeater->get_controls(),
-                'title_field' => '{{{ make_slug }}}',
-                'description' => __('Leave empty to show all parent makes. Drag rows to set display order; only selected makes appear.', 'couplands-listing'),
+            $this->add_control('makes_config', array(
+                'label'       => __('Manufacturers', 'couplands-listing'),
+                'type'        => \Elementor\Controls_Manager::TEXT,
+                'default'     => '',
+                'label_block' => true,
+                'description' => __('Drag to reorder parent makes. Uncheck to hide. Leave untouched to show all.', 'couplands-listing'),
             ));
 
             $this->end_controls_section();
@@ -5181,13 +5492,18 @@ function couplands_define_manufacturer_search_widget()
                 return;
             }
 
-            $make_slugs = array();
-            if (! empty($settings['makes']) && is_array($settings['makes'])) {
+            $makes = '';
+            if (! empty($settings['makes_config'])) {
+                $makes = $system->makes_config_to_visible_slugs($settings['makes_config']);
+            } elseif (! empty($settings['makes']) && is_array($settings['makes'])) {
+                // Migrate legacy repeater rows if present.
+                $make_slugs = array();
                 foreach ($settings['makes'] as $row) {
                     if (! empty($row['make_slug'])) {
                         $make_slugs[] = (string) $row['make_slug'];
                     }
                 }
+                $makes = implode(',', $make_slugs);
             }
 
             // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped — render method returns escaped HTML
@@ -5195,7 +5511,7 @@ function couplands_define_manufacturer_search_widget()
                 'year'       => isset($settings['year']) ? $settings['year'] : '',
                 'carousel'   => ! empty($settings['carousel']) ? $settings['carousel'] : 'no',
                 'hide_count' => ! empty($settings['hide_count']) ? $settings['hide_count'] : 'no',
-                'makes'      => implode(',', $make_slugs),
+                'makes'      => $makes,
             ));
         }
     }
