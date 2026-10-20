@@ -1185,8 +1185,48 @@ class Listing_System
     }
 
     /**
+     * Resolve an ordered list of parent listing-make-model terms from a makes att.
+     * Accepts comma-separated term IDs or slugs. Skips invalid / non-parent terms.
+     *
+     * @param string $makes_raw Comma-separated IDs or slugs.
+     * @return WP_Term[] Ordered parent terms (may be empty).
+     */
+    private function resolve_manufacturer_makes($makes_raw)
+    {
+        $parts = array_filter(array_map('trim', explode(',', (string) $makes_raw)));
+        if (empty($parts)) {
+            return array();
+        }
+
+        $ordered = array();
+        $seen    = array();
+
+        foreach ($parts as $part) {
+            $term = null;
+            if (ctype_digit($part)) {
+                $term = get_term((int) $part, 'listing-make-model');
+            } else {
+                $term = get_term_by('slug', sanitize_title($part), 'listing-make-model');
+            }
+
+            if (! $term || is_wp_error($term) || (int) $term->parent !== 0) {
+                continue;
+            }
+
+            if (isset($seen[$term->term_id])) {
+                continue;
+            }
+
+            $seen[$term->term_id] = true;
+            $ordered[]            = $term;
+        }
+
+        return $ordered;
+    }
+
+    /**
      * Shortcode / shared render: Manufacturer Search Grid or Carousel
-     * manufacturer_search year="2026" carousel="yes" hide_count="yes"
+     * manufacturer_search year="2026" carousel="yes" hide_count="yes" makes="bailey,swift"
      *
      * @param array $atts Shortcode attributes.
      * @return string Grid/carousel HTML.
@@ -1199,6 +1239,7 @@ class Listing_System
             'year'       => date('Y'),
             'carousel'   => 'no',
             'hide_count' => 'no',
+            'makes'      => '',
         ), $atts);
 
         $target_year = sanitize_text_field($atts['year']);
@@ -1207,11 +1248,14 @@ class Listing_System
         $hide_count  = $this->is_attr_enabled($atts['hide_count']);
         $instance_id = 'cls-manu-search-' . wp_unique_id();
 
-        $terms = get_terms(array(
-            'taxonomy'   => 'listing-make-model',
-            'parent'     => 0,
-            'hide_empty' => true,
-        ));
+        $terms = $this->resolve_manufacturer_makes($atts['makes']);
+        if (empty($terms)) {
+            $terms = get_terms(array(
+                'taxonomy'   => 'listing-make-model',
+                'parent'     => 0,
+                'hide_empty' => true,
+            ));
+        }
 
         if (empty($terms) || is_wp_error($terms)) {
             ob_end_clean();
@@ -5097,6 +5141,34 @@ function couplands_define_manufacturer_search_widget()
                 'default'      => '',
             ));
 
+            $make_options = array('' => __('— Select make —', 'couplands-listing'));
+            $parent_makes = get_terms(array(
+                'taxonomy'   => 'listing-make-model',
+                'parent'     => 0,
+                'hide_empty' => false,
+            ));
+            if (! empty($parent_makes) && ! is_wp_error($parent_makes)) {
+                foreach ($parent_makes as $make_term) {
+                    $make_options[$make_term->slug] = $make_term->name;
+                }
+            }
+
+            $makes_repeater = new \Elementor\Repeater();
+            $makes_repeater->add_control('make_slug', array(
+                'label'   => __('Make', 'couplands-listing'),
+                'type'    => \Elementor\Controls_Manager::SELECT,
+                'options' => $make_options,
+                'default' => '',
+            ));
+
+            $this->add_control('makes', array(
+                'label'       => __('Manufacturers (order)', 'couplands-listing'),
+                'type'        => \Elementor\Controls_Manager::REPEATER,
+                'fields'      => $makes_repeater->get_controls(),
+                'title_field' => '{{{ make_slug }}}',
+                'description' => __('Leave empty to show all parent makes. Drag rows to set display order; only selected makes appear.', 'couplands-listing'),
+            ));
+
             $this->end_controls_section();
         }
 
@@ -5109,11 +5181,21 @@ function couplands_define_manufacturer_search_widget()
                 return;
             }
 
+            $make_slugs = array();
+            if (! empty($settings['makes']) && is_array($settings['makes'])) {
+                foreach ($settings['makes'] as $row) {
+                    if (! empty($row['make_slug'])) {
+                        $make_slugs[] = (string) $row['make_slug'];
+                    }
+                }
+            }
+
             // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped — render method returns escaped HTML
             echo $system->render_manufacturer_search(array(
                 'year'       => isset($settings['year']) ? $settings['year'] : '',
                 'carousel'   => ! empty($settings['carousel']) ? $settings['carousel'] : 'no',
                 'hide_count' => ! empty($settings['hide_count']) ? $settings['hide_count'] : 'no',
+                'makes'      => implode(',', $make_slugs),
             ));
         }
     }
